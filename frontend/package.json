@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "demo": "playwright test tests/demo.spec.js"
+    "demo": "cross-env PLAYWRIGHT_DEMO_SLOW=1 playwright test tests/demo.spec.js",
+    "smoke": "cross-env CI=1 playwright test tests/smoke.spec.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",
@@ -16,6 +17,7 @@
     "react-router-dom": "^7.14.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "@playwright/test": "^1.60.0",
     "@vitejs/plugin-react": "^5.1.0",
     "vite": "^7.1.7"
