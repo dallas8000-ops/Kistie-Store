@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capstone 3 — Final Report — Kistie Store</title>
+  <style>
+    /* Screen preview */
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12pt;
+      line-height: 2;
+      color: #000;
+      max-width: 8.5in;
+      margin: 0 auto;
+      padding: 0.75in 1in;
+      background: #fff;
+    }
+    h1, h2, h3 {
+      font-family: "Times New Roman", Times, serif;
+      font-weight: bold;
+      line-height: 2;
+      page-break-after: avoid;
+    }
+    h1 { font-size: 14pt; text-align: center; margin-top: 0; }
+    h2 { font-size: 12pt; margin-top: 1.2em; text-transform: uppercase; letter-spacing: 0.02em; }
+    h3 { font-size: 12pt; font-style: italic; margin-top: 0.8em; }
+    p { margin: 0 0 1em 0; text-align: justify; }
+    .title-block { text-align: center; margin-bottom: 2em; }
+    .title-block p { text-align: center; }
+    .fill { border-bottom: 1px solid #000; min-width: 12em; display: inline-block; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11pt;
+      line-height: 1.5;
+      margin: 1em 0 1.5em 0;
+    }
+    th, td { border: 1px solid #333; padding: 0.35em 0.5em; vertical-align: top; }
+    th { background: #f0f0f0; font-weight: bold; }
+    .figure {
+      border: 1px dashed #666;
+      min-height: 180px;
+      margin: 1em 0;
+      padding: 0.5em;
+      text-align: center;
+      font-size: 11pt;
+      line-height: 1.5;
+      page-break-inside: avoid;
+    }
+    .figure img { max-width: 100%; height: auto; margin-top: 0.5em; }
+    .figure-caption { font-style: italic; margin-top: 0.75em; }
+    ul.ref { padding-left: 2em; }
+    ul.ref li { margin-bottom: 0.75em; }
+    ol.user-stories { padding-left: 2em; }
+    ol.user-stories li { margin-bottom: 1em; }
+    .note {
+      border-left: 3px solid #333;
+      padding-left: 1em;
+      margin: 1em 0;
+      font-size: 11pt;
+    }
+    @media print {
+      body { padding: 0; max-width: none; }
+      h2 { page-break-before: auto; }
+      .page-break { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="title-block">
+    <h1>Capstone 3 — Competency Report</h1>
+    <p>Kistie Store: E‑Commerce Fashion Web Application</p>
+    <p><br></p>
+    <p>Name: _________________________________ &nbsp;&nbsp; Date: __________________</p>
+    <p>Program / Cohort (if applicable): _________________________________</p>
+  </div>
+
+  <hr style="margin: 2em 0;">
+
+  <!-- Replace bracketed blanks before submission -->
+
+  <h2>1. Project and Problem Description</h2>
+
+  <p>Kistie Store is a publicly deployed women’s apparel and accessories e‑commerce web application oriented to a Kampala‑based fulfillment model with worldwide online shoppers. Small fashion retailers increasingly require a storefront that blends discoverability on the web, straightforward cart behavior, multilingual‑friendly tooling, security around staff operations, and a path toward mobile‑money‑style fulfillment without demanding that every shopper install a proprietary app.</p>
+
+  <p>The problem addressed by this Capstone project is operational and customer‑experience fragmentation: boutiques often mix informal channels (messaging apps, spreadsheets, ad‑hoc payment confirmation) with limited web presence. Customers need a consistent place to browse inventory with filters, clear sizing and payment guidance, and a single cart and checkout flow; operators need limited but effective staff views (dashboard, audit trail, optional Django admin) and APIs that can support automation or future mobile clients. The deliverable aligns with Agile delivery practice: iterative enhancement of storefront, API, staffing tools, CI testing, and optional AI assistants on the Shop experience.</p>
+
+  <p>The production stack employs Django&nbsp;5 for server‑rendered pages and REST endpoints (Django REST Framework), SQLite for local development and PostgreSQL where configured for cloud hosting, Bootstrap for responsive layout, and GitHub Actions for continuous integration testing. Experimental React (Vite) client code complements the codebase for SPA‑style prototyping and tooling; the authoritative customer storefront in production remains Django‑templated routes such as <code>/shop/</code>, <code>/cart/</code>, and <code>/checkout/</code>.</p>
+
+
+  <h2 class="page-break">2. Requirements Expressed as User Stories</h2>
+
+  <p>Below, requirements are enumerated in agile user‑story format: <em>As a [role], I want [goal], so that [benefit].</em> Acceptance summaries reference implemented routes or artifacts in the codebase.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>User story</th>
+        <th>Acceptance summary</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>US‑01</td>
+        <td>As a <strong>shopper</strong>, I want the home entry to take me directly to the shop, so that I can start browsing without extra navigation.</td>
+        <td><code>/</code> redirects to <code>/shop/</code>; covered by automated tests.</td>
+      </tr>
+      <tr>
+        <td>US‑02</td>
+        <td>As a <strong>shopper</strong>, I want to filter products (for example by category and price) and open a quick view, so that I can decide what to buy efficiently.</td>
+        <td>Implemented in <code>core/shop.html</code> with server‑side filters and modal quick view.</td>
+      </tr>
+      <tr>
+        <td>US‑03</td>
+        <td>As a <strong>shopper</strong>, I want a cart and checkout with currency context, so that I can submit an order with clear totals.</td>
+        <td><code>/cart/</code>, <code>/checkout/</code>; checkout guards empty carts; tests validate add‑to‑cart, stock limits, and order creation flows.</td>
+      </tr>
+      <tr>
+        <td>US‑04</td>
+        <td>As a <strong>shopper</strong>, I want to create an account and sign in, so that my basket can merge reliably and I can see order history.</td>
+        <td><code>/signup/</code>, <code>/login/</code>, <code>/account/orders/</code>; Django auth and session semantics.</td>
+      </tr>
+      <tr>
+        <td>US‑05</td>
+        <td>As a <strong>shopper</strong>, I want sizing help and optionally an assistant for product questions, so that EU sizing feels less intimidating.</td>
+        <td>Quick‑view sizing via <code>POST /api/size-recommend/</code>; storefront chat bubble uses <code>POST /api/chat/</code>; degrades gracefully if AI keys absent.</td>
+      </tr>
+      <tr>
+        <td>US‑06</td>
+        <td>As a <strong>shopper</strong>, I want to read about the brand, contact the business, and see terms, so that I understand policies and trust the store.</td>
+        <td><code>/about/</code>, <code>/contact/</code> (persists inquiries, email when SMTP configured), <code>/terms/</code>.</td>
+      </tr>
+      <tr>
+        <td>US‑07</td>
+        <td>As an <strong>operator / staff member</strong>, I want a staff sign‑in and dashboard with permission checks, so that only authorized users see internal snapshots.</td>
+        <td><code>/staff/login/</code>, <code>/staff/dashboard/</code>; dashboard tests cover anonymous redirect, permission denial, and allowed roles.</td>
+      </tr>
+      <tr>
+        <td>US‑08</td>
+        <td>As a <strong>superuser</strong>, I want an audit log and tightly gated Django admin, so that sensitive configuration is not exposed to regular shoppers.</td>
+        <td><code>/staff/audit-log/</code>; admin allowed only with superuser and feature flags; middleware tests exercise admin access rules.</td>
+      </tr>
+      <tr>
+        <td>US‑09</td>
+        <td>As a <strong>developer or integrator</strong>, I want read‑mostly JSON for products and categories with staff‑only writes, so that future clients can consume data safely.</td>
+        <td>DRF under <code>/api/inventory/</code>; permission tests for anonymous, shopper, and staff create operations.</td>
+      </tr>
+      <tr>
+        <td>US‑10</td>
+        <td>As a <strong>DevOps stakeholder</strong>, I want health checks and CI on every mainline change, so that regressions are caught early.</td>
+        <td><code>/health/</code> JSON; GitHub Actions workflow runs <code>python manage.py test</code> on Python&nbsp;3.12.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="note">Adjust or extend user stories if your instructor’s earlier Capstone requirements document names additional mandatory scope; map each requirement ID to a story and acceptance line in an appendix if needed.</p>
+
+
+  <h2 class="page-break">3. Screenshots of Project Views</h2>
+
+  <p>Capture the following views from your running local server (<code>http://127.0.0.1:8000/</code>) or from the deployed Render URL after logging in only where ethically appropriate (use non‑production data for staff shots when possible). Insert images into each figure box (right‑click placeholders in Word if you paste this into a document).</p>
+
+  <div class="figure">
+    <strong>Figure 1.</strong> Shop storefront (<code>/shop/</code>): filters, currency/payment selectors, grid with quick‑view capability.
+    <p class="figure-caption"><em>If <code>images/screenshots/shop.png</code> exists in your repo bundle, paste or embed it here.</em></p>
+  </div>
+
+  <div class="figure">
+    <strong>Figure 2.</strong> Shopping cart (<code>/cart/</code>): line items, totals context, empty‑state messaging as applicable.
+    <p class="figure-caption"><em>Optional file: images/screenshots/cart.png</em></p>
+  </div>
+
+  <div class="figure">
+    <strong>Figure 3.</strong> Checkout or order confirmation (<code>/checkout/</code> or confirmation step after order): payment instructions aligned with Pesapal/manual confirmation model.
+    <p class="figure-caption">&nbsp;</p>
+  </div>
+
+  <div class="figure">
+    <strong>Figure 4.</strong> Contact page (<code>/contact/</code>) after successful inquiry or showing form validation styling.
+    <p class="figure-caption"><em>Optional file: images/screenshots/contact.png</em></p>
+  </div>
+
+  <div class="figure">
+    <strong>Figure 5.</strong> Staff portal: staff sign‑in (<code>/staff/login/</code>) or dashboard excerpt (<code>/staff/dashboard/</code>) with identifiable data blurred.
+    <p class="figure-caption">&nbsp;</p>
+  </div>
+
+  <div class="figure">
+    <strong>Figure 6.</strong> API or tooling evidence (for example Swagger‑style not required—screenshot optional): GitHub Actions CI pass for the workflow that runs Django tests.
+    <p class="figure-caption">Export from repository Actions tab or attach build log excerpt.</p>
+  </div>
+
+
+  <h2 class="page-break">4. Documentation of Tests Conducted</h2>
+
+  <h3>4.1 Automated backend (Django) tests</h3>
+  <p>The project ships an automated suite executed with <code>python manage.py test</code> from the <code>backend/</code> directory (36 tests at time of report authoring). Tests are distributed across application modules and exercise HTTP behavior, permissions, redirects, inventory validation rules, cart limits, checkout with order creation, and admin/staff‑portal access control.</p>
+
+  <p><strong>Representative inventory (from <code>core/tests.py</code>):</strong> health JSON (<code>test_health_json</code>); shop template render; home and legacy URL redirects preserving query strings; signup flow; anonymous and role‑scoped staff dashboard access; admin superuser‑only middleware behavior.</p>
+
+  <p><strong><code>cart/tests.py</code>:</strong> anonymous cart load; adding items; rejection of oversize quantities vs stock and invalid sizes; checkout clearing cart after order creation; housekeeping of stale guest carts.</p>
+
+  <p><strong><code>inventory/tests.py</code>:</strong> DRF GET endpoints for products and categories; anonymous and shopper prohibition on destructive category mutations; partial product stock updates; enforcement of acceptable EU‑size payloads.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Layer</th>
+        <th>Command / trigger</th>
+        <th>Outcome criterion</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Local developer</td>
+        <td><code>cd backend &amp;&amp; python manage.py test</code></td>
+        <td>Exit code&nbsp;0; all tests passing.</td>
+      </tr>
+      <tr>
+        <td>Continuous integration</td>
+        <td>GitHub Actions workflow <code>ci.yml</code> on push/PR to <code>main</code>/<code>master</code></td>
+        <td>Ubuntu runner, Python&nbsp;3.12, installs <code>requirements.txt</code>, runs same Django suite.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 End‑to‑end / smoke testing (Playwright)</h3>
+  <p>Under <code>frontend/tests/smoke.spec.js</code>, a Playwright smoke pack validates production‑adjacent UX without seeded credentials:</p>
+
+  <ol class="user-stories">
+    <li>Health endpoint returns JSON with <code>status: ok</code> and service identifier.</li>
+    <li>Root path issues HTTP&nbsp;302 redirect whose <code>Location</code> ends with <code>/shop/</code>.</li>
+    <li>Rendered shop page exposes currency selector (<code>#inventoryCurrency</code>) and coherent title metadata.</li>
+    <li>Anonymous cart route loads with expected heading copy.</li>
+    <li>Checkout with empty basket redirects shopper back to cart.</li>
+    <li>Staff login page reachable with instructional heading.</li>
+  </ol>
+
+  <p>Run prerequisite: Django listening on configurable <code>PLAYWRIGHT_BASE_URL</code>, default <code>http://127.0.0.1:8000</code>; install Node dependencies inside <code>frontend/</code> and execute <code>npm run smoke</code>.</p>
+
+  <h3>4.3 Manual / exploratory verification</h3>
+  <p>Recommended exploratory passes before demo day: multilingual chat prompts (English and sample Luganda phrasing); contact form SMTP vs console backend; Pesapal initiation URL pointing to local or deployed Node payments shim; staff permission matrix for dashboard vs shopper accounts; responsiveness at mobile breakpoints for shop grid and navbar collapse.</p>
+
+
+  <h2 class="page-break">5. References</h2>
+
+  <p>Per course instructions, <strong>replace the bracketed placeholders below</strong> with two or more scholarly or professional sources you personally retrieve via the SDGKU Library portals (for example subscribed databases such as ACM Digital Library, IEEE Xplore, EBSCO Academic Search, ProQuest, or eBooks accessible through your campus login). Maintain consistent citation style chosen by your instructor (APA&nbsp;7 is shown exemplar style).</p>
+
+  <ul class="ref">
+    <li><strong>[SDGKU&nbsp;LIBRARY&nbsp;REFERENCE&nbsp;— replace]</strong>
+      <br>Author(s). (Year). <em>Title of chapter or journal article containing guidance on Scrum or iterative delivery</em>. <em>Journal or Publisher</em>. https://doi.org/&lt;doi-if-any&gt;<br>
+      <em>Rationale linkage:</em> Justify how Scrum sprints structured Capstone increments (prioritize backlog derived from stories in Section&nbsp;2, definition of done tied to CI green builds).</li>
+    <li><strong>[SDGKU&nbsp;LIBRARY&nbsp;REFERENCE&nbsp;— replace]</strong>
+      <br>Author(s). (Year). <em>Software testing textbook or handbook chapter emphasizing automated regression and API testing.</em><br>
+      <em>Rationale linkage:</em> Relate principles to Django unit tests and Playwright smoke coverage.</li>
+    <li><em>Optional supplemental (verify access rights before citing as “library” source):</em> Schwaber, K., &amp; Sutherland, J. (2020). <em>The Scrum Guide</em>. Scrum.org. https://scrumguides.org — widely used definition of Scrum roles, events, and artifacts.</li>
+    <li><em>Technical documentation (not a substitute for library sources):</em> Django Software Foundation. (2025). <em>Django documentation – Testing in Django</em>. https://docs.djangoproject.com/en/stable/topics/testing/</li>
+  </ul>
+
+
+  <h2 class="page-break">Appendix A — How to Convert This File for Submission</h2>
+
+  <ol class="user-stories">
+    <li>Open this HTML in Microsoft Word (<em>File → Open</em>) or paste sections into a blank Word document pre‑styled to <strong>Times New Roman 12&nbsp;pt</strong> and <strong>double line spacing</strong> (Word: <em>Design → Paragraph Spacing → Double</em>, or set line spacing to 2.0 in Paragraph settings).</li>
+    <li>Replace name, date, and cohort lines on the title block.</li>
+    <li>Replace Figure placeholders with actual screenshots; compress large images to keep the PDF reasonable.</li>
+    <li>Finalize library references with full database retrieval details (database name, search date) if your rubric requires it.</li>
+    <li>Export to PDF if your LMS requires PDF upload alongside the separate code ZIP.</li>
+  </ol>
+
+  <h2 class="page-break">Appendix B — Major Local Development Issues Encountered and Resolutions</h2>
+
+  <p>During final integration and tooling work, several recurring obstacles affected reliable local runs (<code>manage.py runserver</code> plus optional Vite on Windows). Below are the <strong>major</strong> items only—not an exhaustive defect log. Automated regression consisted of running the Django suite (<strong>36</strong> passing tests via <code>python manage.py test</code>), continuous integration parity on GitHub Actions, and optional Playwright smoke checks documented in Section&nbsp;4.2.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Major issue</th>
+        <th>Symptoms / evidence</th>
+        <th>Steps taken to correct</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Cross‑origin calls from the React dev server (<code>:5173</code>) to the Django API (<code>:8000</code>) in development</td>
+        <td>Inconsistent SPA loads or cart/session behavior; intermittent browser blocks or unpredictable credentialed <code>fetch</code> results when the browser treated the two ports as different origins.</td>
+        <td>
+          Configure Vite to proxy <strong>all</strong> <code>/api</code> paths to Django (not only inventory). Point the SPA at <strong>same‑origin</strong> relative URLs such as <code>/api/inventory</code> in development so requests flow through Vite. Harden optional dev‑only middleware: <code>Access-Control-Allow-Credentials</code>, CSRF token header allowance, and <code>CSRF_TRUSTED_ORIGINS</code> including <code>http://localhost:5173</code> and <code>http://127.0.0.1:5173</code>.
+        </td>
+      </tr>
+      <tr>
+        <td>Starting the frontend before the Django process was accepting connections</td>
+        <td>Early browser opens showed empty data, failed scripts, or “network errors” until a manual refresh after the backend came up.</td>
+        <td>
+          Provide <code>scripts/start-local.ps1</code>: start Django first, poll <code>GET http://127.0.0.1:8000/health/?format=json</code> until HTTP&nbsp;200, then launch <code>npm run dev</code>; document the order in README and <code>README.txt</code>.
+        </td>
+      </tr>
+      <tr>
+        <td>Local environment pointing at a remote database via <code>DATABASE_URL</code></td>
+        <td>Delayed page loads, connection errors, or failed migrations when the cloud instance slept, quotas applied, or the network blocked access—often mistaken for “broken app.”</td>
+        <td>
+          Document stripping or commenting <code>DATABASE_URL</code> during pure local SQLite work; clarified in <code>backend/.env.example</code> that SQLite is default when omitted; instruct developers to recreate <code>.env</code> consciously per environment.
+        </td>
+      </tr>
+      <tr>
+        <td>Windows PowerShell command compatibility</td>
+        <td>Chains using <code>bash</code>-style <code>&&</code> failed on shells where that operator was unsupported or parsed incorrectly, preventing one‑line automation from starting servers.</td>
+        <td>
+          Standardized examples on <code>Set-Location</code> (<code>cd</code>) plus semicolon separation or dedicated <code>.ps1</code> helpers; avoids fragile copy‑paste snippets in mixed PowerShell versions.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Verification after fixes:</strong> From the project root after installing Python dependencies: open <code>backend/</code>, run <code>python manage.py test</code> until all tests succeed; optionally install Node packages under <code>frontend/</code> and run <code>npm run smoke</code> while Django listens on <code>http://127.0.0.1:8000</code>. CI on <code>main</code>/<code>master</code> repeats the Django suite automatically.</p>
+
+
+  <p style="margin-top: 2em; font-size: 11pt; line-height: 2;"><em>Repository (code reference):</em> https://github.com/dallas8000-ops/Kistie-Store</p>
+  <p style="font-size: 11pt; line-height: 2;"><em>Deployment (if demonstrable to instructor):</em> https://kristie-store.onrender.com</p>
+
+
+</body>
+</html>

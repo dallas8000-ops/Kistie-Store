@@ -15,9 +15,13 @@ Live **fashion ecommerce** (women’s apparel & accessories)—shipping from **K
 
 ---
 
-## Latest update (May 19, 2026)
+## Latest update (May 25, 2026)
 
-- README refresh: documented **optional AI / pricing env vars**, **shop JSON endpoints** (`/api/chat/`, `/api/size-recommend/`, `/api/ai/describe/`), **production Django admin toggle** (`DJANGO_ENABLE_ADMIN`), **Render build pipeline** (migrate + seed + image linking), and corrected **local setup** (`pip install -r requirements.txt` from repo root before `cd backend`).
+- Windows **local dev starter** [`scripts/start-local.ps1`](scripts/start-local.ps1): starts Django, waits for **`/health/`**, then Vite; avoids opening the SPA before the API is ready.
+- **Vite proxy** covers all **`/api`** (not only `/api/inventory`) for same-origin dev requests; React uses relative **`/api/inventory`** unless **`VITE_API_BASE_URL`** overrides it.
+- Dev **CORS** allows credentialed API calls from **`localhost:5173`** / **`127.0.0.1:5173`**; **`CSRF_TRUSTED_ORIGINS`** includes those origins when **`DEBUG=True`**.
+- Submission-oriented **plain-text** run guide [`README.txt`](README.txt) plus Capstone report scaffold [`docs/CAPSTONE3_FINAL_REPORT.html`](docs/CAPSTONE3_FINAL_REPORT.html).
+- Earlier (May 19, 2026): README refresh documenting **optional AI / pricing env vars**, **shop JSON endpoints** (`/api/chat/`, `/api/size-recommend/`, `/api/ai/describe/`), **production Django admin toggle** (`DJANGO_ENABLE_ADMIN`), **Render build pipeline** (migrate + seed + image linking), and corrected **local setup** (`pip install -r requirements.txt` from repo root before `cd backend`).
 - Earlier (May 18, 2026): AI shopping assistant end-to-end (`/api/chat/` + shop chatbot UI); size assistance (quick-view `/api/size-recommend/` + chatbot measurement parsing); contact inquiry auto-classification; review sentiment on approval; staff demand forecasting; staff AI description generator (`/api/ai/describe/`) for English + Luganda; chatbot UX/resilience improvements.
 
 ---
@@ -42,8 +46,8 @@ Paths below are from the **repository root** (same layout CI and Render use).
 - **`backend/`** — Django project: `manage.py`; **`core/`** (settings, root `urls.py`, middleware, templates under `core/templates/core/`); **`inventory/`** (product models + DRF, mounted at `/api/inventory/`); **`cart/`**; **`pages/`** (e.g. contact inquiry model).
 - **`frontend/`** — Vite + React (`package.json`, app code under `frontend/src/`). Used for experiments / future SPA work; **production storefront HTML is rendered by Django**, not this bundle. Optional: `npm install`, `npm run dev` (Vite dev server, typically port **5173**), `npm run demo` (Playwright smoke tests in `frontend/tests/`).
 - **`payments/`** — Node service for Pesapal redirect handling (`package.json`).
-- **`scripts/`** — Automation such as [`scripts/capture_screenshots.py`](scripts/capture_screenshots.py).
-- **`docs/`** — Static materials such as [`docs/demo-presentation.html`](docs/demo-presentation.html).
+- **`scripts/`** — [`scripts/capture_screenshots.py`](scripts/capture_screenshots.py); Windows dev helper [`scripts/start-local.ps1`](scripts/start-local.ps1) (Django first, then Vite).
+- **`docs/`** — [`docs/demo-presentation.html`](docs/demo-presentation.html), Capstone deliverable scaffold [`docs/CAPSTONE3_FINAL_REPORT.html`](docs/CAPSTONE3_FINAL_REPORT.html).
 - **`images/`** — Source imagery; **`images/screenshots/`** — README screenshot gallery (see **Proof — screenshots** below).
 - **[`.github/workflows/ci.yml`](.github/workflows/ci.yml)** — installs root `requirements.txt`, then `cd backend && python manage.py test` (Python **3.12**).
 - **[`render.yaml`](render.yaml)** — Render web service (`gunicorn --chdir backend`), Postgres, and a build command that runs **collectstatic**, **migrate**, **`seed_inventory_if_empty`**, and **`link_static_images_to_products`**.
@@ -96,9 +100,7 @@ Python · **Django 5.2** · **Django REST Framework** · **PostgreSQL** (prod) /
 python scripts/capture_screenshots.py
 ```
 
-Uses **`http://127.0.0.1:8000`** by default; override with **`SCREENSHOT_BASE_URL`** if needed.
-
-**Samples:**
+Uses **`http://127.0.0.1:8000`** by default; override with **`SCREENSHOT_BASE_URL`** if needed. If **`images/screenshots/`** is missing or empty in your tree, run the script above (or copy images in) so the sample links below resolve.
 
 | Shop (`/shop/`) | About |
 |-----------------|-------|
@@ -140,8 +142,26 @@ cp .env.example .env   # set DJANGO_SECRET_KEY (and optional vars below)
 python manage.py migrate
 python manage.py runserver
 # http://127.0.0.1:8000/ → redirects to /shop/
-# python manage.py createsuperuser  → /admin/ when ENABLE_ADMIN is on
+# python manage.py createsuperuser  → /admin/ when DJANGO_ENABLE_ADMIN allows it
 ```
+
+### Fewer flaky loads (recommended)
+
+Typical intermittent failures locally:
+
+1. **`DATABASE_URL` in `backend/.env`** — If it points at a cloud DB that is asleep or unreachable, pages or API calls can hang or error. For pure local work, **remove or comment out** `DATABASE_URL` so Django uses **SQLite** (`db.sqlite3`).
+2. **Frontend before backend** — If you open Vite (`npm run dev` on **:5173**) before Django is listening on **:8000**, the React app can fail until you refresh. The Vite dev server **proxies** `/api` to Django; start Django first (or use the script below).
+3. **Always start Django first** — [`scripts/start-local.ps1`](scripts/start-local.ps1) (Windows): waits for `GET /health/` on **:8000**, then starts Vite and opens both URLs.
+
+From the **repository root** of this project (the folder that contains `backend/` and `scripts/`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "scripts\start-local.ps1"
+```
+
+If this repo lives inside a parent folder named `kistie-store` (e.g. a monorepo), use `"kistie-store\scripts\start-local.ps1"` instead.
+
+The React dev app uses **relative** `/api/inventory` URLs so the browser talks to Vite, which forwards to Django—same-origin in dev, which avoids most CORS/cookie issues. Override with **`VITE_API_BASE_URL`** only if you know you need a different API host.
 
 Optional: **`frontend/`** (`npm install`, `npm run dev`) and **`payments/`** for React/Node experiments. See [`render.yaml`](render.yaml) for production service shape.
 

@@ -1,8 +1,7 @@
-// Simple API utility for the React frontend
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-  || (import.meta.env.DEV
-    ? 'http://127.0.0.1:8000/api/inventory'
-    : '/api/inventory');
+// Simple API utility for the React frontend.
+// Relative `/api/inventory`: Vite proxies to Django in dev (vite.config.js) — same-origin, fewer CORS/session issues.
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.trim() || '/api/inventory';
 
 export async function fetchProducts() {
   const res = await fetch(`${API_BASE}/products/`);

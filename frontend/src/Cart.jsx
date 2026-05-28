@@ -7,10 +7,8 @@ const PAYMENT_METHODS = [
   { value: 'airtel', label: 'Airtel Money' },
   { value: 'worldremit', label: 'WorldRemit' },
 ];
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-  || (import.meta.env.DEV
-    ? 'http://127.0.0.1:8000/api/inventory'
-    : '/api/inventory');
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.trim() || '/api/inventory';
 const CART_STORAGE_KEY = 'eaf_cart_items';
 
 const FALLBACK_RATES = {

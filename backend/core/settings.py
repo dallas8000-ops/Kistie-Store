@@ -97,7 +97,12 @@ for _raw in os.environ.get('CSRF_TRUSTED_ORIGINS', '').replace(',', ' ').split()
     if _origin and _origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(_origin)
 if DEBUG:
-    for _local in ('http://127.0.0.1:8000', 'http://localhost:8000'):
+    for _local in (
+        'http://127.0.0.1:8000',
+        'http://localhost:8000',
+        'http://127.0.0.1:5173',
+        'http://localhost:5173',
+    ):
         if _local not in CSRF_TRUSTED_ORIGINS:
             CSRF_TRUSTED_ORIGINS.append(_local)
 

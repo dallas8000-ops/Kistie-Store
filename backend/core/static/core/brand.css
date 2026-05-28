@@ -69,6 +69,20 @@ body {
   font-size: 1.05rem;
 }
 
+/* Navbar sign-out: button styled like other nav links */
+.nav-link-btn {
+  color: inherit;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  text-align: left;
+}
+
+.nav-link-btn:hover,
+.nav-link-btn:focus {
+  color: inherit;
+  opacity: 0.9;
+}
+
 .nav-utility-group {
   display: flex;
   gap: 0.55rem 0.7rem;
