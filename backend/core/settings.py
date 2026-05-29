@@ -25,6 +25,19 @@ def _django_tests_running():
     """True when `manage.py test` runs (HTTP client must not hit SECURE_SSL_REDIRECT)."""
     return len(sys.argv) > 1 and sys.argv[1] == 'test'
 
+
+def _django_render_build_command_running():
+    """True for manage.py commands Render runs before the web process starts."""
+    if len(sys.argv) < 2:
+        return False
+    return sys.argv[1] in {
+        'collectstatic',
+        'migrate',
+        'seed_inventory_if_empty',
+        'link_static_images_to_products',
+        'check',
+    }
+
 LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
@@ -64,7 +77,7 @@ debug_default = 'False' if is_render else 'True'
 DEBUG = os.environ.get('DJANGO_DEBUG', debug_default).lower() in ('1', 'true', 'yes')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-DJANGO_SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', None)
+DJANGO_SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
 if DJANGO_SECRET_KEY:
     SECRET_KEY = DJANGO_SECRET_KEY
 elif DEBUG:
@@ -74,9 +87,13 @@ elif DEBUG:
         'DJANGO_DEV_SECRET_KEY',
         'django-insecure-kistie-dev-only-rotate-for-shared-machines',
     )
+elif is_render and _django_render_build_command_running():
+    # Render injects DJANGO_SECRET_KEY for the running web service, not during the build step.
+    SECRET_KEY = 'render-build-phase-only-not-used-at-runtime'
 else:
     raise ImproperlyConfigured(
-        'Set DJANGO_SECRET_KEY when DEBUG=False (production / staging). Render supplies this automatically.'
+        'Set DJANGO_SECRET_KEY when DEBUG=False (production / staging). '
+        'On Render, add DJANGO_SECRET_KEY to the web service Environment tab.'
     )
 enable_admin_default = 'False' if is_render else 'True'
 ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', enable_admin_default).lower() in ('1', 'true', 'yes')
