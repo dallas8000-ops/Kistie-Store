@@ -1015,7 +1015,9 @@ def _build_whatsapp_product_url(request, product, size=''):
     if size:
         lines.append(f'• EU size: {size}')
     text = '\n'.join(lines)
-    return f'https://wa.me/256704757198?{urlencode({"text": text})}'
+    from cart.whatsapp import store_whatsapp_number, whatsapp_url
+
+    return whatsapp_url(store_whatsapp_number(), text)
 
 
 def _related_products_for_pdp(product, limit=4):

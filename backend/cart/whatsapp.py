@@ -14,7 +14,19 @@ def store_whatsapp_number() -> str:
     digits = re.sub(r'\D', '', str(raw))
     if digits.startswith('0') and len(digits) >= 10:
         digits = '256' + digits.lstrip('0')
+    elif len(digits) == 9 and digits.startswith('7'):
+        digits = '256' + digits
     return digits or '256704757198'
+
+
+def format_store_phone_display(digits: str | None = None) -> str:
+    """Human-readable number shown on Contact / About (matches wa.me target)."""
+    digits = digits or store_whatsapp_number()
+    if digits.startswith('256') and len(digits) >= 12:
+        return f'+256 {digits[3:6]} {digits[6:9]} {digits[9:12]}'
+    if digits:
+        return f'+{digits}'
+    return ''
 
 
 def customer_whatsapp_digits(phone: str) -> str:
