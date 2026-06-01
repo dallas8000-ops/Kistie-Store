@@ -49,8 +49,8 @@
     </ol>
   </nav>
 
-  <div class="row g-4 pdp-layout">
-    <div class="col-md-6 col-lg-7">
+  <div class="row g-3 g-md-4 pdp-layout">
+    <div class="col-6 col-lg-7">
       <div class="pdp-gallery">
         {% if gallery %}
         <div id="pdpCarousel" class="carousel slide pdp-carousel" data-bs-ride="false">
@@ -87,7 +87,7 @@
       </div>
     </div>
 
-    <div class="col-md-6 col-lg-5">
+    <div class="col-6 col-lg-5">
       <div class="pdp-buy-panel">
         <h1 class="h3 fw-bold mb-2">{{ product.name }}</h1>
         {% if review_label %}
@@ -231,20 +231,6 @@
   </section>
 </div>
 
-{# Mobile sticky add-to-cart #}
-{% if product.stock_quantity > 0 %}
-<div class="pdp-sticky-bar d-md-none" aria-hidden="false">
-  <div class="pdp-sticky-bar-inner">
-    <div class="pdp-sticky-price">
-      <span class="small text-muted d-block">Total</span>
-      <strong>{{ currency }} {{ price_display }}</strong>
-    </div>
-    <button type="submit" form="pdpAddForm" class="btn btn-brand-primary flex-grow-1">
-      <i class="bi bi-cart-plus" aria-hidden="true"></i> Add to cart
-    </button>
-  </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
@@ -327,7 +313,6 @@
     });
   }
 
-  document.body.classList.add('pdp-page-active');
 })();
 </script>
 {% endblock %}
