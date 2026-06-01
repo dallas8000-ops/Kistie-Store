@@ -182,6 +182,27 @@
   </section>
   {% endif %}
 
+  {% if related_rows %}
+  <section class="mt-4 pt-3 border-top">
+    <h2 class="h5 fw-semibold mb-3">You may also like <small class="text-muted fw-normal">(Oyinza okwagala)</small></h2>
+    <div class="row g-3">
+      {% for row in related_rows %}
+      {% with rp=row.product %}
+      <div class="col-6 col-md-3">
+        <a href="{% url 'product_detail' rp.slug %}" class="text-decoration-none pdp-related-card d-block h-100">
+          {% if row.has_image %}
+          <img src="{{ row.primary_url }}" alt="{{ rp.name }}" class="w-100 rounded-3 mb-2 pdp-related-image" loading="lazy">
+          {% endif %}
+          <span class="d-block fw-semibold small">{{ rp.name|truncatewords:5 }}</span>
+          <span class="small text-muted">{{ currency }} {{ row.price_display }}</span>
+        </a>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if recent_rows %}
   <section class="mt-4 pt-3 border-top">
     <h2 class="h5 fw-semibold mb-3">Recently viewed <small class="text-muted fw-normal">(Byakolebwako dda)</small></h2>
@@ -203,24 +224,11 @@
   </section>
   {% endif %}
 
-  {% if related_rows %}
-  <section class="mt-4 pt-3 border-top">
-    <h2 class="h5 fw-semibold mb-3">You may also like <small class="text-muted fw-normal">(Oyinza okwagala)</small></h2>
-    <div class="row g-3">
-      {% for row in related_rows %}
-      {% with rp=row.product %}
-      <div class="col-6 col-md-3">
-        <a href="{% url 'product_detail' rp.slug %}" class="text-decoration-none pdp-related-card d-block h-100">
-          {% if row.has_image %}
-          <img src="{{ row.primary_url }}" alt="{{ rp.name }}" class="w-100 rounded-3 mb-2 pdp-related-image" loading="lazy">
-          {% endif %}
-          <span class="d-block fw-semibold small">{{ rp.name|truncatewords:5 }}</span>
-          <span class="small text-muted">{{ currency }} {{ row.price_display }}</span>
-        </a>
-      </div>
-      {% endwith %}
-      {% endfor %}
-    </div>
+  {% if instagram_url %}
+  <section class="mt-4 pt-3 border-top pdp-instagram-cta">
+    <a href="{{ instagram_url }}" class="btn btn-outline-light btn-sm" target="_blank" rel="noopener noreferrer">
+      <i class="bi bi-instagram" aria-hidden="true"></i> See this look on Instagram
+    </a>
   </section>
   {% endif %}
 </div>

@@ -7,6 +7,10 @@
     <h1 class="h3 fw-bold mb-0 shop-page-title">Shop<br><small style="font-size:0.65rem;font-weight:normal;opacity:0.75;">Ekyaguzi</small></h1>
     <form method="get" id="shopFiltersForm" class="catalog-filters w-100">
       <div class="row g-2 align-items-end justify-content-end shop-filter-grid">
+        <div class="col-12 col-lg-4">
+          <label for="shopSearch" class="small text-light-emphasis mb-0 d-block">Search <span style="opacity:0.7;">(Noonya)</span></label>
+          <input id="shopSearch" type="search" name="q" class="form-control form-control-sm" placeholder="e.g. blue dress, vest, magenta" value="{{ filter_q }}" autocomplete="off">
+        </div>
         <div class="col-12 col-sm-6 col-lg-auto">
           <label for="catalogCategory" class="small text-light-emphasis mb-0 d-block">Category <span style="opacity:0.7;">(Ekika)</span></label>
           <select id="catalogCategory" name="category" class="form-select form-select-sm">
@@ -57,6 +61,27 @@
   <div id="shopResultsRoot" class="shop-results-root" aria-live="polite" aria-busy="false">
     {% include 'core/_shop_results.html' %}
   </div>
+
+  {% if instagram_url %}
+  <section class="shop-instagram-strip mt-4 pt-4 border-top border-light border-opacity-25" aria-labelledby="shopInstagramHeading">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div>
+        <h2 id="shopInstagramHeading" class="h5 fw-bold mb-0 text-white">From our Instagram <small class="fw-normal opacity-75">(Ku Instagram)</small></h2>
+        <p class="small mb-0 text-white opacity-75">New drops, styling, and behind-the-scenes from Kampala.</p>
+      </div>
+      <a class="btn btn-sm btn-light fw-semibold" href="{{ instagram_url }}" target="_blank" rel="noopener noreferrer">
+        <i class="bi bi-instagram" aria-hidden="true"></i> Follow us
+      </a>
+    </div>
+    <a href="{{ instagram_url }}" class="shop-instagram-card d-flex align-items-center justify-content-center text-decoration-none rounded-3 shadow-sm py-5" target="_blank" rel="noopener noreferrer">
+      <span class="text-center text-white px-3">
+        <i class="bi bi-instagram display-6 d-block mb-2" aria-hidden="true"></i>
+        <span class="fw-semibold d-block">View latest posts on Instagram</span>
+        <span class="small opacity-75">Tap to open profile</span>
+      </span>
+    </a>
+  </section>
+  {% endif %}
 </div>
 
 {# Bootstrap modal: product quick view (filled via data-* on .quick-view-trigger) - positioned at body level to avoid clipping #}
@@ -224,7 +249,7 @@
       form.querySelectorAll('select').forEach(function (el) {
         el.addEventListener('change', function () { loadShopResults(true); });
       });
-      ['priceMin', 'priceMax', 'sizeFilter'].forEach(function (id) {
+      ['shopSearch', 'priceMin', 'priceMax', 'sizeFilter'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el) {
           el.addEventListener('input', function () { scheduleFilterLoad(true); });

@@ -1915,6 +1915,29 @@ body {
   color: #062e14 !important;
 }
 
+/* PDP / shop shell: white label on WhatsApp green for WCAG contrast */
+.pdp-shell .btn-brand-whatsapp,
+.shop-shell .btn-brand-whatsapp {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.pdp-shell .btn-brand-whatsapp:hover,
+.shop-shell .btn-brand-whatsapp:hover {
+  color: #ffffff !important;
+}
+
+.shop-instagram-card {
+  background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+  min-height: 140px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.shop-instagram-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+}
+
 .btn-brand-outline {
   display: inline-flex;
   align-items: center;
@@ -2282,13 +2305,84 @@ body.pdp-page-active .site-shell {
   min-height: 48px;
 }
 
-/* PDP price: override shop catalog-price (#0f2239) for readable contrast on dark shells */
+/*
+ * PDP sits on .catalog-shell’s dark gradient. Light mode --text is dark brown, so
+ * use light copy on the gradient; dark mode keeps token-based colors.
+ */
+.pdp-shell {
+  color: #faf4ee;
+}
+
+.pdp-shell .breadcrumb-item {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.pdp-shell .breadcrumb-item.active {
+  color: #ffffff;
+}
+
+.pdp-shell .breadcrumb-item a {
+  color: var(--secondary);
+}
+
+.pdp-shell .text-muted {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.pdp-shell h2.h5,
+.pdp-shell .pdp-buy-panel .fw-semibold {
+  color: #ffffff;
+}
+
+.pdp-buy-panel h1 {
+  color: #ffffff;
+}
+
 .pdp-shell .catalog-price.pdp-price {
-  color: var(--text);
+  color: #ffffff;
   font-size: clamp(1.75rem, 4.5vw, 2.35rem);
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.02em;
+}
+
+.pdp-shell .catalog-price.pdp-price .text-muted {
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 0.55em;
+  font-weight: 600;
+}
+
+.pdp-shell .pdp-description {
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.55;
+}
+
+.pdp-shell .pdp-related-card .fw-semibold {
+  color: #ffffff;
+}
+
+body.theme-dark .pdp-shell {
+  color: var(--text);
+}
+
+body.theme-dark .pdp-shell .breadcrumb-item {
+  color: var(--text-muted);
+}
+
+body.theme-dark .pdp-shell .breadcrumb-item.active {
+  color: var(--text);
+}
+
+body.theme-dark .pdp-shell .text-muted {
+  color: var(--text-muted) !important;
+}
+
+body.theme-dark .pdp-shell h2.h5,
+body.theme-dark .pdp-shell .pdp-buy-panel .fw-semibold,
+body.theme-dark .pdp-buy-panel h1,
+body.theme-dark .pdp-shell .pdp-description,
+body.theme-dark .pdp-shell .pdp-related-card .fw-semibold {
+  color: var(--text);
 }
 
 body.theme-dark .pdp-shell .catalog-price.pdp-price {
@@ -2296,19 +2390,8 @@ body.theme-dark .pdp-shell .catalog-price.pdp-price {
   text-shadow: 0 1px 12px color-mix(in srgb, var(--secondary) 35%, transparent);
 }
 
-.pdp-shell .catalog-price.pdp-price .text-muted {
+body.theme-dark .pdp-shell .catalog-price.pdp-price .text-muted {
   color: var(--text-muted) !important;
-  font-size: 0.55em;
-  font-weight: 600;
-}
-
-.pdp-buy-panel h1 {
-  color: var(--text);
-}
-
-.pdp-shell .pdp-description {
-  color: var(--text);
-  line-height: 1.55;
 }
 
 .pdp-sticky-price {
@@ -2402,7 +2485,7 @@ body.theme-dark .pdp-sticky-bar {
   background: var(--surface);
 }
 
-body.theme-dark .breadcrumb-item a {
+body.theme-dark .pdp-shell .breadcrumb-item a {
   color: var(--secondary);
 }
 

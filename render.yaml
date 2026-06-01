@@ -37,6 +37,10 @@ services:
         value: "dallas8000@gmail.com"
       - key: DJANGO_DEFAULT_FROM_EMAIL
         value: "dallas8000@gmail.com"
+      - key: SITE_URL
+        sync: false
+      - key: INSTAGRAM_PROFILE_URL
+        sync: false
 
 databases:
   - name: kistie-store-db

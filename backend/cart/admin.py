@@ -40,7 +40,7 @@ class OrderAdmin(admin.ModelAdmin):
 		(None, {
 			'fields': (
 				'order_ref', 'status', 'user', 'session_key',
-				'customer_name', 'phone', 'country', 'notes',
+				'customer_name', 'customer_email', 'phone', 'country', 'notes',
 			),
 		}),
 		('Payment', {

@@ -1,7 +1,9 @@
 from decimal import Decimal
 from datetime import timedelta
 
-from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -154,6 +156,34 @@ class OrderTrackingTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, 'order-timeline')
 		self.assertContains(response, 'Track this order')
+
+	@override_settings(
+		EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+		SITE_URL='https://example.com',
+	)
+	def test_status_change_emails_customer(self):
+		user = get_user_model().objects.create_user(
+			username='buyer_notify',
+			email='buyer@example.com',
+			password='StrongPass123!',
+		)
+		order = Order.objects.create(
+			user=user,
+			customer_name='Buyer',
+			customer_email='buyer@example.com',
+			phone='+256700',
+			country='Uganda',
+			payment_method='mtn',
+			currency='USD',
+			total_amount=Decimal('10.00'),
+		)
+		order.status = Order.STATUS_SHIPPED
+		order.tracking_url = 'https://courier.example/track/1'
+		order.save()
+		self.assertEqual(len(mail.outbox), 1)
+		self.assertIn(order.order_ref, mail.outbox[0].subject)
+		self.assertIn('Shipped', mail.outbox[0].body)
+		self.assertIn('https://courier.example/track/1', mail.outbox[0].body)
 
 	def test_status_progression_sets_timestamps(self):
 		order = Order.objects.create(

@@ -895,6 +895,7 @@ def _shop_filtered_products_queryset(request):
     price_min = request.GET.get('price_min')
     price_max = request.GET.get('price_max')
     size_q = (request.GET.get('size') or '').strip()
+    search_q = (request.GET.get('q') or '').strip()
 
     products = (
         Product.objects.select_related('category')
@@ -930,6 +931,14 @@ def _shop_filtered_products_queryset(request):
     if size_q:
         products = products.filter(sizes__icontains=size_q)
 
+    if search_q:
+        products = products.filter(
+            Q(name__icontains=search_q)
+            | Q(description__icontains=search_q)
+            | Q(color__icontains=search_q)
+            | Q(category__name__icontains=search_q)
+        )
+
     products = products.order_by('-created_at')
 
     filter_ctx = {
@@ -937,6 +946,7 @@ def _shop_filtered_products_queryset(request):
         'filter_price_min': (price_min or '').strip(),
         'filter_price_max': (price_max or '').strip(),
         'filter_size': size_q,
+        'filter_q': search_q,
     }
     return products, filter_ctx
 
@@ -1380,6 +1390,7 @@ def _create_order_items_and_reduce_stock(order, cart_items, checkout_prefs, prod
 def _checkout_post(request, cart, cart_items, checkout_prefs, grand_total, context):
     form_data = {
         'name': (request.POST.get('name') or '').strip(),
+        'email': (request.POST.get('email') or '').strip(),
         'phone': (request.POST.get('phone') or '').strip(),
         'country': (request.POST.get('country') or '').strip(),
         'notes': (request.POST.get('notes') or '').strip(),
@@ -1397,10 +1408,15 @@ def _checkout_post(request, cart, cart_items, checkout_prefs, grand_total, conte
             messages.error(request, locked_stock_error)
             return redirect('cart')
 
+        customer_email = form_data['email']
+        if not customer_email and request.user.is_authenticated and request.user.email:
+            customer_email = request.user.email
+
         order = Order.objects.create(
             user=request.user if request.user.is_authenticated else None,
             session_key=request.session.session_key,
             customer_name=form_data['name'],
+            customer_email=customer_email,
             phone=form_data['phone'],
             country=form_data['country'],
             notes=form_data['notes'],
@@ -1476,6 +1492,7 @@ def checkout(request):
         'grand_total_display': _format_money(grand_total, checkout_prefs['currency']),
         'form_data': {
             'name': '',
+            'email': '',
             'phone': '',
             'country': '',
             'notes': '',

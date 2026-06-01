@@ -53,6 +53,11 @@ class Order(models.Model):
 	session_key = models.CharField(max_length=40, null=True, blank=True)
 	order_ref = models.CharField(max_length=20, unique=True, editable=False)
 	customer_name = models.CharField(max_length=120)
+	customer_email = models.EmailField(
+		max_length=254,
+		blank=True,
+		help_text='Optional — used for order status updates.',
+	)
 	phone = models.CharField(max_length=30)
 	country = models.CharField(max_length=60)
 	notes = models.TextField(blank=True)

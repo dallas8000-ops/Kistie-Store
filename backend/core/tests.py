@@ -102,6 +102,32 @@ class ShopPageTests(TestCase):
         self.assertIn('html', data)
         self.assertIn('total_items', data)
 
+    def test_shop_search_filters_by_name(self):
+        cat = Category.objects.create(name='Outerwear', description='')
+        Product.objects.create(
+            name='Navy Check Vest',
+            description='Smart layering piece',
+            price_usd=Decimal('80.00'),
+            price_ugx=Decimal('0'),
+            category=cat,
+            stock_quantity=2,
+            sizes='40',
+            color='navy',
+        )
+        Product.objects.create(
+            name='Summer Sandals',
+            description='Beach shoes',
+            price_usd=Decimal('40.00'),
+            price_ugx=Decimal('0'),
+            category=cat,
+            stock_quantity=2,
+            sizes='38',
+        )
+        response = self.client.get(reverse('shop'), {'q': 'vest'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Navy Check Vest')
+        self.assertNotContains(response, 'Summer Sandals')
+
 
 class ProductDetailPageTests(TestCase):
     @classmethod

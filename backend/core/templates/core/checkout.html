@@ -16,6 +16,10 @@
                             <input id="checkoutName" type="text" name="name" class="form-control" value="{{ form_data.name }}" required>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label" for="checkoutEmail">Email <span class="text-muted fw-normal">(optional — order updates)</span></label>
+                            <input id="checkoutEmail" type="email" name="email" class="form-control" value="{{ form_data.email }}" autocomplete="email" placeholder="you@example.com">
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label" for="checkoutPhone">Phone Number</label>
                             <input id="checkoutPhone" type="text" name="phone" class="form-control" value="{{ form_data.phone }}" required>
                         </div>
