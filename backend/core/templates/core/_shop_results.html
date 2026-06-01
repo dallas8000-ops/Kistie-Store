@@ -1,0 +1,91 @@
+{% if shop_rows %}
+<section class="catalog-date-section float-in delay-1">
+  <div class="catalog-grid catalog-product-grid">
+    {% for row in shop_rows %}
+    {% with product=row.product %}
+    <article class="catalog-card catalog-product-card inventory-shop-card">
+      <div class="shop-card-layout">
+      {% if row.has_image %}
+      <div class="shop-product-media">
+        <a href="{% url 'product_detail' product.slug %}" class="d-block text-decoration-none">
+          <img src="{{ row.detail_url }}" alt="{{ product.name }}" loading="lazy" class="shop-product-image">
+        </a>
+      </div>
+      {% else %}
+      <div class="shop-product-media d-flex align-items-center justify-content-center bg-secondary text-white shop-product-media--empty">No Image<br><small style="opacity:0.8;">Tewali Kifaananyi</small></div>
+      {% endif %}
+      <div class="catalog-product-body shop-card-copy">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2 shop-card-head">
+          <h2 class="h5 fw-semibold mb-0 flex-grow-1"><a href="{% url 'product_detail' product.slug %}" class="text-decoration-none text-reset">{{ product.name }}</a></h2>
+          <a href="{% url 'product_detail' product.slug %}"
+            class="btn btn-sm btn-brand-outline flex-shrink-0 lh-1"
+            aria-label="View {{ product.name }} details">
+            <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Details<br><small style="font-weight:normal;opacity:0.75;font-size:0.65rem;">Laba Ebisingawo</small>
+          </a>
+          <button type="button"
+            class="btn btn-sm btn-brand-outline flex-shrink-0 quick-view-trigger lh-1 d-none d-md-inline-flex"
+            data-bs-toggle="modal"
+            data-bs-target="#productQuickViewModal"
+            data-qv-name="{{ product.name|escapejs }}"
+            data-qv-desc="{{ row.description|truncatewords:70|escapejs }}"
+            data-qv-img="{{ row.detail_url|escapejs }}"
+            data-qv-price="{{ row.price_display|escapejs }}"
+            data-qv-currency="{{ currency|escapejs }}"
+            data-qv-stock="{{ product.stock_quantity }}"
+            data-qv-sizes="{{ product.sizes|default:''|escapejs }}"
+            aria-label="Quick view {{ product.name }}">
+            <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i> Quick view<br><small style="font-weight:normal;opacity:0.75;font-size:0.65rem;">Laba Mangu</small>
+          </button>
+        </div>
+        <p class="catalog-description mb-2">{{ row.description }}</p>
+        <p class="catalog-price mb-1">
+          {{ currency }} {{ row.price_display }}
+          {% if product.old_price and product.old_price > product.price_usd %}
+          <span class="text-muted text-decoration-line-through ms-2 small">USD {{ product.old_price }}</span>
+          {% endif %}
+        </p>
+        {% if row.review_label or row.category_name %}
+        <p class="small text-muted mb-2">
+          {% if row.review_label %}<span class="text-warning">{{ row.review_label }}</span>{% endif %}
+          {% if row.review_label and row.category_name %} · {% endif %}
+          {% if row.category_name %}{{ row.category_name }}{% endif %}
+        </p>
+        {% endif %}
+        <div class="mb-2">
+          {% if product.stock_quantity > 0 %}
+          <span class="badge text-bg-success">In stock: {{ product.stock_quantity }} <small style="opacity:0.85;">(Waliwo)</small></span>
+          {% else %}
+          <span class="badge text-bg-danger">Out of stock <small style="opacity:0.85;">(Tekiriwo)</small></span>
+          {% endif %}
+          {% if product.color %}
+          <span class="badge text-bg-secondary ms-1">{{ product.color }}</span>
+          {% endif %}
+        </div>
+        <form method="post" action="{% url 'add_to_cart' product.id %}" class="inventory-purchase-form border-top pt-3 mt-1">
+          {% csrf_token %}
+          <div class="mb-2 inventory-control-group">
+            <label class="fw-bold inventory-inline-label" for="size-{{ product.id }}">EU Size <small class="text-muted">(Saizi)</small>:</label>
+            <select id="size-{{ product.id }}" name="size" class="form-select inventory-inline-select ms-2">
+              {% for size in product.size_list %}
+              <option value="{{ size }}">EU {{ size }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="d-flex align-items-center mb-3 inventory-control-group">
+            <label class="fw-bold me-2 inventory-inline-label" for="quantity-{{ product.id }}">Quantity <small class="text-muted">(Omuwendo)</small>:</label>
+            <input id="quantity-{{ product.id }}" type="number" name="quantity" value="1" min="1" max="{{ product.stock_quantity }}" class="form-control inventory-quantity-input">
+          </div>
+          <button type="submit" class="btn btn-lg w-100 inventory-add-btn" {% if product.stock_quantity == 0 %}disabled{% endif %}><i class="bi bi-cart-plus" aria-hidden="true"></i> Add to Cart<br><small style="font-weight:normal;opacity:0.85;">Gattako mu Kikapu</small></button>
+        </form>
+      </div>
+      </div>
+    </article>
+    {% endwith %}
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="catalog-date-section">
+  <p class="mb-0">No products match these filters. Try adjusting category or price, or <a href="{% url 'shop' %}">reset</a>.</p>
+</section>
+{% endif %}

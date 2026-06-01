@@ -26,10 +26,32 @@ class OrderItemInline(admin.TabularInline):
 
 
 class OrderAdmin(admin.ModelAdmin):
-	list_display = ('order_ref', 'customer_name', 'phone', 'country', 'payment_method', 'currency', 'total_amount', 'status', 'created_at')
+	list_display = (
+		'order_ref', 'customer_name', 'phone', 'country', 'payment_method',
+		'currency', 'total_amount', 'status', 'created_at',
+	)
 	list_filter = ('status', 'payment_method', 'currency', 'created_at')
 	search_fields = ('order_ref', 'customer_name', 'phone')
-	readonly_fields = ('order_ref', 'created_at')
+	readonly_fields = (
+		'order_ref', 'created_at', 'payment_confirmed_at', 'packed_at', 'shipped_at', 'delivered_at',
+	)
+	list_editable = ('status',)
+	fieldsets = (
+		(None, {
+			'fields': (
+				'order_ref', 'status', 'user', 'session_key',
+				'customer_name', 'phone', 'country', 'notes',
+			),
+		}),
+		('Payment', {
+			'fields': ('payment_method', 'currency', 'total_amount'),
+		}),
+		('Fulfillment', {
+			'fields': ('tracking_url', 'payment_confirmed_at', 'packed_at', 'shipped_at', 'delivered_at'),
+			'description': 'Set status to Packed / Shipped / Delivered as the order progresses. Timestamps fill automatically.',
+		}),
+		('Meta', {'fields': ('created_at',)}),
+	)
 	inlines = [OrderItemInline]
 
 

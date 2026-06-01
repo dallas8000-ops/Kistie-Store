@@ -1,0 +1,27 @@
+{# Consolidated help FAB: WhatsApp + AI assistant #}
+<div class="kistie-support-stack" id="kistieSupportStack">
+  <div id="kistie-chat-window" class="kistie-chat-window" role="dialog" aria-label="Kistie shopping assistant" aria-hidden="true">
+    <div id="kistie-chat-header" class="kistie-chat-header">
+      <span>🛍 Kistie Assistant <small>(AI)</small></span>
+      <button type="button" id="kistie-chat-close" aria-label="Close chat">×</button>
+    </div>
+    <div id="kistie-chat-messages" class="kistie-chat-messages" aria-live="polite"></div>
+    <form id="kistie-chat-form" class="kistie-chat-form" autocomplete="off">
+      <input id="kistie-chat-input" type="text" placeholder="Ask about sizes, prices… (English or Luganda)" maxlength="400" aria-label="Chat message">
+      <button id="kistie-chat-send" type="submit" aria-label="Send">➤</button>
+    </form>
+  </div>
+
+  <div class="kistie-fab-menu" id="kistieFabMenu" hidden>
+    <a class="kistie-fab-action kistie-fab-action--wa" href="https://wa.me/256704757198" target="_blank" rel="noopener">
+      <i class="bi bi-whatsapp" aria-hidden="true"></i> WhatsApp
+    </a>
+    <button type="button" class="kistie-fab-action kistie-fab-action--chat" id="kistieFabOpenChat">
+      <i class="bi bi-chat-dots-fill" aria-hidden="true"></i> AI Assistant
+    </button>
+  </div>
+
+  <button type="button" class="kistie-fab-toggle" id="kistieFabToggle" aria-expanded="false" aria-controls="kistieFabMenu" aria-label="Help and contact options">
+    <i class="bi bi-headset" aria-hidden="true"></i>
+  </button>
+</div>

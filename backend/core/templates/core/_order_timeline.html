@@ -1,0 +1,20 @@
+{# Expects order.timeline_steps (list from cart.order_tracking.order_timeline) #}
+<ol class="order-timeline list-unstyled mb-0" aria-label="Order progress">
+  {% for step in order.timeline_steps %}
+  <li class="order-timeline__step order-timeline__step--{{ step.state }}">
+    <span class="order-timeline__marker" aria-hidden="true"></span>
+    <div class="order-timeline__body">
+      <span class="order-timeline__label fw-semibold">{{ step.label }}</span>
+      <small class="order-timeline__label-lg text-muted d-block">{{ step.label_lg }}</small>
+      {% if step.at %}
+      <small class="order-timeline__when text-muted d-block">{{ step.at|date:"M j, Y g:i A" }}</small>
+      {% endif %}
+      {% if step.show_tracking and step.tracking_url %}
+      <a href="{{ step.tracking_url }}" class="btn btn-sm btn-brand-outline mt-2" target="_blank" rel="noopener">
+        <i class="bi bi-truck" aria-hidden="true"></i> Track shipment
+      </a>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ol>

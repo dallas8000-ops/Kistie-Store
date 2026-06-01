@@ -200,18 +200,18 @@ function Cart() {
 
   let cartContent;
   if (loadingCart) {
-    cartContent = <p className="bg-dark text-light p-3 rounded-3">Loading your cart...<br /><small style={{color: '#fff', opacity: 0.85}}>Tukutegeerera ekikapu kyo...</small></p>;
+    cartContent = <p className="p-3">Loading your cart...<br /><small className="react-muted">Tukutegeerera ekikapu kyo...</small></p>;
   } else if (cartItems.length === 0) {
-    cartContent = <p className="bg-dark text-light p-3 rounded-3">Your cart is empty. Start shopping!<br /><small style={{color: '#fff', opacity: 0.85}}>Ekikapu kyo kirina wangu. Tangira okugula!</small></p>;
+    cartContent = <p className="p-3">Your cart is empty. Start shopping!<br /><small className="react-muted">Ekikapu kyo kirina wangu. Tangira okugula!</small></p>;
   } else {
     cartContent = (
       <>
-        <div className="card p-3 mb-3 text-start shadow-sm bg-secondary text-light">
+        <div className="card p-3 mb-3 text-start shadow-sm" style={{background: 'var(--surface-soft)', color: 'var(--text)'}}>
           <h5 className="mb-1">Order Information</h5>
-          <small className="d-block mb-3" style={{color: '#fff', opacity: 0.85}}>Ebirowoozo by'Omutendera</small>
+          <small className="d-block mb-3">Ebirowoozo by'Omutendera</small>
           <div className="row g-3 align-items-end">
             <div className="col-md-4">
-              <label className="form-label mb-1" htmlFor="currencySelect">Currency <small style={{color: '#fff', opacity: 0.85}}>(Ssente)</small></label>
+              <label className="form-label mb-1" htmlFor="currencySelect">Currency <small>(Ssente)</small></label>
               <select id="currencySelect" className="form-select" value={currency} onChange={(event) => setCurrency(event.target.value)}>
                 {SUPPORTED_CURRENCIES.map((code) => (
                   <option key={code} value={code}>{code}</option>
@@ -219,7 +219,7 @@ function Cart() {
               </select>
             </div>
             <div className="col-md-4">
-              <label className="form-label mb-1" htmlFor="paymentMethodSelect">Payment Method <small style={{color: '#fff', opacity: 0.85}}>(Enkola y'Okuliipira)</small></label>
+              <label className="form-label mb-1" htmlFor="paymentMethodSelect">Payment Method <small>(Enkola y'Okuliipira)</small></label>
               <select id="paymentMethodSelect" className="form-select" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
                 {PAYMENT_METHODS.map((method) => (
                   <option key={method.value} value={method.value}>{method.label}</option>
@@ -227,31 +227,31 @@ function Cart() {
               </select>
             </div>
             <div className="col-md-4">
-              <small className="d-block" style={{color: '#fff', opacity: 0.85}}>Rate Source: {ratesSource === 'live' ? 'Live API' : 'Fallback'}</small>
-              <small className="d-block" style={{color: '#fff', opacity: 0.85}}>Updated: {ratesUpdatedAt || 'loading...'}</small>
-              <small className="d-block" style={{color: '#fff', opacity: 0.85}}>1 USD = {rates[currency]?.toFixed(currency === 'UGX' ? 0 : 4)} {currency}</small>
-              <small className="d-block" style={{color: '#fff', opacity: 0.85}}>Cart Source: {cartSource === 'api' ? 'API' : 'Local Storage'}</small>
+              <small className="d-block">Rate Source: {ratesSource === 'live' ? 'Live API' : 'Fallback'}</small>
+              <small className="d-block">Updated: {ratesUpdatedAt || 'loading...'}</small>
+              <small className="d-block">1 USD = {rates[currency]?.toFixed(currency === 'UGX' ? 0 : 4)} {currency}</small>
+              <small className="d-block">Cart Source: {cartSource === 'api' ? 'API' : 'Local Storage'}</small>
             </div>
           </div>
         </div>
 
         <ul className="list-group mb-3">
           {convertedItems.map(item => (
-            <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-light" key={item.id}>
-              <span>{item.name} <span style={{color: '#fff', opacity: 0.85}}>x{item.quantity}</span></span>
+            <li className="list-group-item d-flex justify-content-between align-items-center" style={{background: 'var(--surface-soft)', color: 'var(--text)'}} key={item.id}>
+              <span>{item.name} <span>x{item.quantity}</span></span>
               <span>{formatAmount(item.convertedLineTotal, currency)}</span>
             </li>
           ))}
         </ul>
 
-        <div className="card p-3 mb-3 text-start shadow-sm bg-secondary text-light">
+        <div className="card p-3 mb-3 text-start shadow-sm" style={{background: 'var(--surface-soft)', color: 'var(--text)'}}>
           <h5 className="mb-1">Order Summary</h5>
-          <small className="d-block mb-2" style={{color: '#fff', opacity: 0.85}}>Ekifuufu ky'Omutendera</small>
-          <div className="d-flex justify-content-between"><span>Items <small style={{color: '#fff', opacity: 0.85}}>(Ebintu)</small></span><span>{cartItems.length}</span></div>
-          <div className="d-flex justify-content-between"><span>Quantity <small style={{color: '#fff', opacity: 0.85}}>(Omuwendo)</small></span><span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}</span></div>
-          <div className="d-flex justify-content-between"><span>Method <small style={{color: '#fff', opacity: 0.85}}>(Enkola)</small></span><span>{selectedMethodLabel}</span></div>
+          <small className="d-block mb-2">Ekifuufu ky'Omutendera</small>
+          <div className="d-flex justify-content-between"><span>Items <small>(Ebintu)</small></span><span>{cartItems.length}</span></div>
+          <div className="d-flex justify-content-between"><span>Quantity <small>(Omuwendo)</small></span><span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}</span></div>
+          <div className="d-flex justify-content-between"><span>Method <small>(Enkola)</small></span><span>{selectedMethodLabel}</span></div>
           <hr className="my-2" />
-          <h4 className="mb-0">Total: {formatAmount(convertedTotal, currency)}<br /><small className="fw-normal" style={{fontSize: '0.65rem', color: '#fff', opacity: 0.85}}>Enteeresa Yonna</small></h4>
+          <h4 className="mb-0">Total: {formatAmount(convertedTotal, currency)}<br /><small className="fw-normal react-subtle" style={{fontSize: '0.65rem'}}>Enteeresa Yonna</small></h4>
         </div>
 
         <button className="btn btn-success mt-3" onClick={handlePay} disabled={paying}>
@@ -267,9 +267,9 @@ function Cart() {
   }
 
   return (
-    <div className="text-center bg-dark text-light p-4 rounded-3">
+    <div className="text-center p-2">
       <h2>Your Cart</h2>
-      <small className="d-block mb-2" style={{color: '#fff', opacity: 0.85}}>Ekikapu Kyo</small>
+      <small className="d-block mb-2 react-muted">Ekikapu Kyo</small>
       {cartContent}
       {!loadingCart && cartError && (
         <div className="mt-3 alert alert-warning">

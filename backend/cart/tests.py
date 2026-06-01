@@ -8,6 +8,7 @@ from django.utils import timezone
 from inventory.models import Category, Product
 
 from .models import Cart, CartItem, Order, OrderItem
+from .order_tracking import order_timeline
 
 
 class CartFlowSmokeTests(TestCase):
@@ -48,7 +49,10 @@ class CartFlowSmokeTests(TestCase):
 			data={'quantity': 1, 'size': 'XL'},
 		)
 		self.assertEqual(response.status_code, 302)
-		self.assertEqual(response.url, reverse('shop'))
+		self.assertTrue(
+			response.url == reverse('shop')
+			or response.url == reverse('product_detail', args=[self.product.slug])
+		)
 		self.assertEqual(CartItem.objects.count(), 0)
 
 	def test_checkout_creates_order_and_clears_cart(self):
@@ -81,7 +85,10 @@ class CartFlowSmokeTests(TestCase):
 		)
 
 		self.assertEqual(response.status_code, 302)
-		self.assertEqual(response.url, reverse('shop'))
+		self.assertTrue(
+			response.url == reverse('shop')
+			or response.url == reverse('product_detail', args=[self.product.slug])
+		)
 		self.assertEqual(CartItem.objects.count(), 0)
 
 	def test_update_cart_item_rejects_quantity_above_stock(self):
@@ -112,3 +119,83 @@ class CartFlowSmokeTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertFalse(Cart.objects.filter(id=stale.id).exists())
 		self.assertTrue(Cart.objects.filter(id=active.id).exists())
+
+
+class OrderTrackingTests(TestCase):
+	def setUp(self):
+		category = Category.objects.create(name='Dresses', description='')
+		self.product = Product.objects.create(
+			name='Timeline Dress',
+			description='Test',
+			price_usd=Decimal('80.00'),
+			price_ugx=Decimal('0'),
+			category=category,
+			stock_quantity=2,
+			sizes='38',
+		)
+
+	def _place_order(self):
+		self.client.post(
+			reverse('add_to_cart', args=[self.product.id]),
+			data={'quantity': 1, 'size': '38'},
+		)
+		return self.client.post(
+			reverse('checkout'),
+			data={
+				'name': 'Jane Guest',
+				'phone': '+256701234567',
+				'country': 'Uganda',
+				'notes': '',
+			},
+		)
+
+	def test_checkout_success_shows_timeline(self):
+		response = self._place_order()
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'order-timeline')
+		self.assertContains(response, 'Track this order')
+
+	def test_status_progression_sets_timestamps(self):
+		order = Order.objects.create(
+			customer_name='Test',
+			phone='+256700',
+			country='Uganda',
+			payment_method='mtn',
+			currency='USD',
+			total_amount=Decimal('10.00'),
+		)
+		order.status = Order.STATUS_CONFIRMED
+		order.save()
+		order.refresh_from_db()
+		self.assertIsNotNone(order.payment_confirmed_at)
+
+		order.status = Order.STATUS_SHIPPED
+		order.tracking_url = 'https://example.com/track/123'
+		order.save()
+		order.refresh_from_db()
+		self.assertIsNotNone(order.shipped_at)
+
+		steps = order_timeline(order)
+		shipped = next(s for s in steps if s['key'] == 'shipped')
+		self.assertTrue(shipped['show_tracking'])
+
+	def test_guest_can_track_order_with_phone(self):
+		self._place_order()
+		order = Order.objects.get()
+		response = self.client.post(
+			reverse('order_track'),
+			data={'order_ref': order.order_ref, 'phone': '0701234567'},
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, order.order_ref)
+		self.assertContains(response, 'order-timeline')
+
+	def test_track_rejects_wrong_phone(self):
+		self._place_order()
+		order = Order.objects.get()
+		response = self.client.post(
+			reverse('order_track'),
+			data={'order_ref': order.order_ref, 'phone': '9999999999'},
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, 'order-timeline')

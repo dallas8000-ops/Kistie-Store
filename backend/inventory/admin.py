@@ -98,12 +98,12 @@ class ProductImageInline(admin.TabularInline):
 	extra = 1
 
 class ProductAdmin(admin.ModelAdmin):
-	readonly_fields = ('in_stock',)
+	readonly_fields = ('in_stock', 'slug')
 	list_display = (
-		'name', 'category', 'price_usd', 'price_ugx', 'stock_quantity', 'in_stock', 'created_at',
+		'name', 'slug', 'category', 'price_usd', 'price_ugx', 'stock_quantity', 'in_stock', 'created_at',
 	)
 	list_filter = ('category', 'in_stock', 'created_at')
-	search_fields = ('name', 'description', 'color', 'sizes')
+	search_fields = ('name', 'slug', 'description', 'color', 'sizes')
 	list_editable = ('stock_quantity',)
 	list_display_links = ('name',)
 	date_hierarchy = 'created_at'
@@ -111,7 +111,7 @@ class ProductAdmin(admin.ModelAdmin):
 	autocomplete_fields = ('category',)
 	fieldsets = (
 		('Product Information', {
-			'fields': ('name', 'category', 'description', 'color', 'stock_quantity', 'in_stock'),
+			'fields': ('name', 'slug', 'category', 'description', 'color', 'stock_quantity', 'in_stock'),
 			'description': 'Availability follows Stock quantity automatically (In stock is read-only).',
 		}),
 		('Pricing', {

@@ -1,0 +1,327 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}{{ product.name }} | Kistie Store{% endblock %}
+
+{% block extra_head %}
+<link rel="canonical" href="{{ canonical_url }}">
+<meta property="og:type" content="product">
+<meta property="og:title" content="{{ product.name }}">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:description" content="{{ description|truncatewords:30 }}">
+{% if gallery %}
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ gallery.0.url }}">
+{% endif %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "{{ product.name|escapejs }}",
+  "description": "{{ description|truncatewords:80|escapejs }}",
+  "sku": "{{ product.id }}",
+  "brand": { "@type": "Brand", "name": "Kistie Store" },
+  "url": "{{ canonical_url }}",
+  {% if schema_images %}"image": [{% for img in schema_images %}"{{ img }}"{% if not forloop.last %}, {% endif %}{% endfor %}],{% endif %}
+  "offers": {
+    "@type": "Offer",
+    "url": "{{ canonical_url }}",
+    "priceCurrency": "{{ currency }}",
+    "price": "{{ schema_price }}",
+    "availability": "{{ schema_availability }}"
+  }{% if review_count and review_avg %},
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "{{ review_avg|floatformat:1 }}",
+    "reviewCount": "{{ review_count }}"
+  }{% endif %}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="catalog-shell float-in pdp-shell">
+  <nav aria-label="Breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0 small">
+      <li class="breadcrumb-item"><a href="{% url 'shop' %}">Shop</a></li>
+      {% if category_name %}
+      <li class="breadcrumb-item"><a href="{% url 'shop' %}?category={{ product.category_id }}">{{ category_name }}</a></li>
+      {% endif %}
+      <li class="breadcrumb-item active" aria-current="page">{{ product.name|truncatewords:6 }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4 pdp-layout">
+    <div class="col-md-6 col-lg-7">
+      <div class="pdp-gallery">
+        {% if gallery %}
+        <div id="pdpCarousel" class="carousel slide pdp-carousel" data-bs-ride="false">
+          <div class="carousel-inner rounded-3 shadow-sm">
+            {% for img in gallery %}
+            <div class="carousel-item{% if forloop.first %} active{% endif %}">
+              <img src="{{ img.url }}" class="d-block w-100 pdp-carousel-image" alt="{{ img.alt }}" {% if not forloop.first %}loading="lazy"{% endif %}>
+            </div>
+            {% endfor %}
+          </div>
+          {% if gallery|length > 1 %}
+          <button class="carousel-control-prev" type="button" data-bs-target="#pdpCarousel" data-bs-slide="prev" aria-label="Previous image">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#pdpCarousel" data-bs-slide="next" aria-label="Next image">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          </button>
+          {% endif %}
+        </div>
+        {% if gallery|length > 1 %}
+        <div class="pdp-thumbs mt-2 d-flex gap-2 flex-wrap" role="tablist" aria-label="Product images">
+          {% for img in gallery %}
+          <button type="button" class="pdp-thumb-btn{% if forloop.first %} active{% endif %}" data-bs-target="#pdpCarousel" data-bs-slide-to="{{ forloop.counter0 }}" aria-label="Show image {{ forloop.counter }}">
+            <img src="{{ img.url }}" alt="" loading="lazy">
+          </button>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="pdp-carousel pdp-carousel--empty d-flex align-items-center justify-content-center rounded-3 bg-secondary text-white">
+          No Image<br><small style="opacity:0.85;">Tewali Kifaananyi</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-md-6 col-lg-5">
+      <div class="pdp-buy-panel">
+        <h1 class="h3 fw-bold mb-2">{{ product.name }}</h1>
+        {% if review_label %}
+        <p class="mb-2"><span class="text-warning">{{ review_label }}</span></p>
+        {% endif %}
+        <p class="catalog-price mb-2 pdp-price">
+          {{ currency }} {{ price_display }}
+          {% if old_price_display %}
+          <span class="text-muted text-decoration-line-through ms-2 small">{{ currency }} {{ old_price_display }}</span>
+          {% endif %}
+        </p>
+        {% if category_name or product.color %}
+        <p class="small text-muted mb-3">
+          {% if category_name %}{{ category_name }}{% endif %}
+          {% if category_name and product.color %} · {% endif %}
+          {% if product.color %}{{ product.color }}{% endif %}
+        </p>
+        {% endif %}
+        <div class="mb-3">
+          {% if product.stock_quantity > 0 %}
+          <span class="badge text-bg-success">In stock: {{ product.stock_quantity }} <small style="opacity:0.85;">(Waliwo)</small></span>
+          {% else %}
+          <span class="badge text-bg-danger">Out of stock <small style="opacity:0.85;">(Tekiriwo)</small></span>
+          {% endif %}
+        </div>
+
+        <form method="post" action="{% url 'add_to_cart' product.id %}" id="pdpAddForm" class="inventory-purchase-form border-top pt-3">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          {% if product.size_list %}
+          <div class="mb-3 inventory-control-group">
+            <label class="fw-bold inventory-inline-label" for="pdp-size">EU Size <small class="text-muted">(Saizi)</small></label>
+            <select id="pdp-size" name="size" class="form-select inventory-inline-select">
+              {% for size in product.size_list %}
+              <option value="{{ size }}">EU {{ size }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          <div class="mb-3 inventory-control-group">
+            <label class="fw-bold inventory-inline-label" for="pdp-qty">Quantity <small class="text-muted">(Omuwendo)</small></label>
+            <input id="pdp-qty" type="number" name="quantity" value="1" min="1" max="{{ product.stock_quantity|default:1 }}" class="form-control inventory-quantity-input">
+          </div>
+          <div class="d-grid gap-2 pdp-desktop-actions">
+            <button type="submit" class="btn btn-lg inventory-add-btn" {% if product.stock_quantity == 0 %}disabled{% endif %}>
+              <i class="bi bi-cart-plus" aria-hidden="true"></i> Add to Cart<br>
+              <small style="font-weight:normal;opacity:0.85;">Gattako mu Kikapu</small>
+            </button>
+            <a id="pdpWhatsApp" class="btn btn-brand-whatsapp btn-lg" href="{{ whatsapp_url }}" target="_blank" rel="noopener">
+              <i class="bi bi-whatsapp" aria-hidden="true"></i> Order on WhatsApp
+            </a>
+          </div>
+        </form>
+
+        <div class="border-top pt-3 mt-3">
+          <p class="small fw-semibold mb-2"><i class="bi bi-rulers" aria-hidden="true"></i> Find your EU size <small class="text-muted fw-normal">(Noonya Saizi yo)</small></p>
+          <div class="row g-1 mb-2">
+            <div class="col-4">
+              <input type="number" id="pdpBust" class="form-control form-control-sm" placeholder="Bust cm" min="60" max="200" aria-label="Bust in cm">
+            </div>
+            <div class="col-4">
+              <input type="number" id="pdpWaist" class="form-control form-control-sm" placeholder="Waist cm" min="40" max="180" aria-label="Waist in cm">
+            </div>
+            <div class="col-4">
+              <input type="number" id="pdpHips" class="form-control form-control-sm" placeholder="Hips cm" min="60" max="220" aria-label="Hips in cm">
+            </div>
+          </div>
+          <button type="button" id="pdpSizeBtn" class="btn btn-sm btn-brand-outline">Get my size</button>
+          <p id="pdpSizeResult" class="small mt-2 mb-0 text-success fw-semibold d-none"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="mt-4 pt-3 border-top">
+    <h2 class="h5 fw-semibold mb-3">Description <small class="text-muted fw-normal">(Ennyonyola)</small></h2>
+    <p class="mb-0 pdp-description">{{ description }}</p>
+  </section>
+
+  {% if reviews %}
+  <section class="mt-4 pt-3 border-top">
+    <h2 class="h5 fw-semibold mb-3">Customer reviews <small class="text-muted fw-normal">(Ebirowoozo)</small></h2>
+    <ul class="list-unstyled mb-0 pdp-reviews">
+      {% for review in reviews %}
+      <li class="mb-3 pb-3 border-bottom">
+        <div class="text-warning mb-1">{% for i in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</div>
+        {% if review.title %}<strong>{{ review.title }}</strong>{% endif %}
+        {% if review.comment %}<p class="mb-0 small text-muted">{{ review.comment }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if recent_rows %}
+  <section class="mt-4 pt-3 border-top">
+    <h2 class="h5 fw-semibold mb-3">Recently viewed <small class="text-muted fw-normal">(Byakolebwako dda)</small></h2>
+    <div class="row g-3">
+      {% for row in recent_rows %}
+      {% with rp=row.product %}
+      <div class="col-6 col-md-3">
+        <a href="{% url 'product_detail' rp.slug %}" class="text-decoration-none pdp-related-card d-block h-100">
+          {% if row.has_image %}
+          <img src="{{ row.primary_url }}" alt="{{ rp.name }}" class="w-100 rounded-3 mb-2 pdp-related-image" loading="lazy">
+          {% endif %}
+          <span class="d-block fw-semibold small">{{ rp.name|truncatewords:5 }}</span>
+          <span class="small text-muted">{{ currency }} {{ row.price_display }}</span>
+        </a>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if related_rows %}
+  <section class="mt-4 pt-3 border-top">
+    <h2 class="h5 fw-semibold mb-3">You may also like <small class="text-muted fw-normal">(Oyinza okwagala)</small></h2>
+    <div class="row g-3">
+      {% for row in related_rows %}
+      {% with rp=row.product %}
+      <div class="col-6 col-md-3">
+        <a href="{% url 'product_detail' rp.slug %}" class="text-decoration-none pdp-related-card d-block h-100">
+          {% if row.has_image %}
+          <img src="{{ row.primary_url }}" alt="{{ rp.name }}" class="w-100 rounded-3 mb-2 pdp-related-image" loading="lazy">
+          {% endif %}
+          <span class="d-block fw-semibold small">{{ rp.name|truncatewords:5 }}</span>
+          <span class="small text-muted">{{ currency }} {{ row.price_display }}</span>
+        </a>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+
+{# Mobile sticky add-to-cart #}
+{% if product.stock_quantity > 0 %}
+<div class="pdp-sticky-bar d-md-none" aria-hidden="false">
+  <div class="pdp-sticky-bar-inner">
+    <div class="pdp-sticky-price">
+      <span class="small text-muted d-block">Total</span>
+      <strong>{{ currency }} {{ price_display }}</strong>
+    </div>
+    <button type="submit" form="pdpAddForm" class="btn btn-brand-primary flex-grow-1">
+      <i class="bi bi-cart-plus" aria-hidden="true"></i> Add to cart
+    </button>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{{ whatsapp_url|json_script:"pdp-wa-url" }}
+<script>
+(function () {
+  const sizeSelect = document.getElementById('pdp-size');
+  const waLink = document.getElementById('pdpWhatsApp');
+  const waUrlEl = document.getElementById('pdp-wa-url');
+  const waBase = waUrlEl ? JSON.parse(waUrlEl.textContent) : '';
+
+  function updateWhatsApp() {
+    if (!waLink || !waBase) return;
+    let url = waBase;
+    const size = sizeSelect ? sizeSelect.value : '';
+    if (size) {
+      const u = new URL(url);
+      const text = decodeURIComponent(u.searchParams.get('text') || '');
+      const withoutSize = text.replace(/\n• EU size:.*$/m, '');
+      u.searchParams.set('text', withoutSize + '\n• EU size: ' + size);
+      url = u.toString();
+    }
+    waLink.href = url;
+  }
+
+  if (sizeSelect) {
+    sizeSelect.addEventListener('change', updateWhatsApp);
+    updateWhatsApp();
+  }
+
+  const carousel = document.getElementById('pdpCarousel');
+  if (carousel) {
+    carousel.addEventListener('slid.bs.carousel', function (e) {
+      document.querySelectorAll('.pdp-thumb-btn').forEach(function (btn, i) {
+        btn.classList.toggle('active', i === e.to);
+      });
+    });
+  }
+
+  const sizeBtn = document.getElementById('pdpSizeBtn');
+  if (sizeBtn) {
+    sizeBtn.addEventListener('click', async function () {
+      const bust = parseFloat(document.getElementById('pdpBust').value);
+      const waist = parseFloat(document.getElementById('pdpWaist').value);
+      const hips = parseFloat(document.getElementById('pdpHips').value);
+      const resultEl = document.getElementById('pdpSizeResult');
+      if (!bust || !waist || !hips) {
+        resultEl.textContent = 'Please enter bust, waist and hips (cm).';
+        resultEl.className = 'small mt-2 mb-0 text-danger fw-semibold';
+        resultEl.classList.remove('d-none');
+        return;
+      }
+      sizeBtn.disabled = true;
+      sizeBtn.textContent = 'Checking…';
+      try {
+        const res = await fetch('/api/size-recommend/', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({bust, waist, hips}),
+        });
+        const data = await res.json();
+        if (data.size) {
+          resultEl.textContent = '✓ Recommended: EU ' + data.size + ' — ' + data.note;
+          resultEl.className = 'small mt-2 mb-0 text-success fw-semibold';
+          if (sizeSelect) {
+            sizeSelect.value = data.size;
+            updateWhatsApp();
+          }
+        } else {
+          resultEl.textContent = data.error || 'Could not determine size.';
+          resultEl.className = 'small mt-2 mb-0 text-danger fw-semibold';
+        }
+      } catch (e) {
+        resultEl.textContent = 'Network error. Please try again.';
+        resultEl.className = 'small mt-2 mb-0 text-danger fw-semibold';
+      }
+      resultEl.classList.remove('d-none');
+      sizeBtn.disabled = false;
+      sizeBtn.textContent = 'Get my size';
+    });
+  }
+
+  document.body.classList.add('pdp-page-active');
+})();
+</script>
+{% endblock %}

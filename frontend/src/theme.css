@@ -1,0 +1,41 @@
+/* Align React dev app with Kistie Store Django tokens (brand.css) */
+:root {
+  --bg: #241a14;
+  --surface: #2f231c;
+  --surface-soft: #3a2d25;
+  --text: #faf4ee;
+  --text-muted: #d4c4b6;
+  --primary: #faf4ee;
+  --secondary: #e0b84d;
+  --accent: #d48494;
+  --shadow: 0 16px 42px rgba(0, 0, 0, 0.4);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.react-app-nav {
+  background: color-mix(in srgb, var(--surface) 92%, black) !important;
+}
+
+.react-app-panel {
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.react-muted {
+  color: var(--text-muted);
+}
+
+.react-subtle {
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.react-lead {
+  color: var(--text);
+}

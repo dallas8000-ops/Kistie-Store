@@ -1,0 +1,51 @@
+{% extends 'core/base.html' %}
+{% block title %}Track order | Kistie Store{% endblock %}
+{% block content %}
+<div class="container py-4 float-in" style="max-width: 720px;">
+  <h1 class="h3 fw-bold mb-1">Track your order</h1>
+  <p class="text-muted mb-4">Enter your order reference and phone number from checkout.<br>
+    <small style="opacity:0.85;">Yingiza ennamba y'okutumya n'essimu gye wakozesa.</small></p>
+
+  <div class="card shadow-sm border-0 mb-4" style="border-radius: 14px;">
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        {% csrf_token %}
+        <div class="col-12">
+          <label class="form-label" for="trackRef">Order reference</label>
+          <input id="trackRef" type="text" name="order_ref" class="form-control" required
+            placeholder="e.g. KS-A1B2C3D4" value="{{ form_order_ref }}" autocomplete="off">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="trackPhone">Phone number</label>
+          <input id="trackPhone" type="tel" name="phone" class="form-control" required
+            placeholder="+256..." value="{{ form_phone }}" autocomplete="tel">
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-brand-primary w-100">Track order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if order %}
+  <div class="card shadow-sm border-0" style="border-radius: 14px;">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+        <div>
+          <span class="fw-semibold">{{ order.order_ref }}</span>
+          <span class="text-muted small ms-2">{{ order.created_at }}</span>
+        </div>
+        <span class="badge text-bg-secondary">{{ order.get_status_display }}</span>
+      </div>
+      <p class="small mb-3">{{ order.customer_name }} · {{ order.currency }} {{ order.total_amount }}</p>
+      {% include 'core/_order_timeline.html' with order=order %}
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="mt-4 mb-0 small text-muted">
+    Have an account? <a href="{% url 'login' %}">Sign in</a> to see all orders, or
+    <a href="{% url 'shop' %}">continue shopping</a>.
+  </p>
+</div>
+{% endblock %}

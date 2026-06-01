@@ -17,13 +17,17 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Avg, Count, Prefetch, Q, Sum
 from django.http import FileResponse, Http404, HttpResponseRedirect, JsonResponse
+from django.utils.http import urlencode
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from cart.models import Cart, CartItem, Order, OrderItem
-from inventory.models import Category, Product, ProductImage
+from cart.order_tracking import order_timeline, orders_with_timelines
+from core.recently_viewed import record_product_view, recently_viewed_products
+from inventory.models import Category, Product, ProductImage, ProductReview
 from pages.forms import ContactInquiryForm
 from pages.models import ContactInquiry
 
@@ -152,6 +156,45 @@ def _merge_guest_cart_into_user(request, user, session_key=None):
             user_item.save()
 
     guest_cart.delete()
+
+
+def _attach_guest_orders_to_user(request, user):
+    session_key = request.session.session_key
+    if not session_key:
+        return
+    Order.objects.filter(session_key=session_key, user__isnull=True).update(user=user)
+
+
+def _normalize_phone(value):
+    return re.sub(r'\D', '', value or '')
+
+
+def _phone_matches(order_phone, submitted_phone):
+    stored = _normalize_phone(order_phone)
+    submitted = _normalize_phone(submitted_phone)
+    if not stored or not submitted:
+        return False
+    if stored == submitted:
+        return True
+    tail = 9
+    return stored.endswith(submitted[-tail:]) or submitted.endswith(stored[-tail:])
+
+
+def _render_checkout_success(request, order, checkout_prefs, grand_total, instructions):
+    order.timeline_steps = order_timeline(order)
+    request.session['last_order_ref'] = order.order_ref
+    request.session.modified = True
+    return render(request, 'core/checkout_success.html', {
+        'order': order,
+        'currency': checkout_prefs['currency'] if checkout_prefs else order.currency,
+        'grand_total_display': (
+            _format_money(grand_total, checkout_prefs['currency'])
+            if checkout_prefs and grand_total is not None
+            else _format_money(_safe_decimal(order.total_amount, Decimal('0')), order.currency)
+        ),
+        'payment_method': checkout_prefs['payment_method'] if checkout_prefs else order.payment_method,
+        'instructions': instructions,
+    })
 
 
 def _catalog_image_files():
@@ -357,6 +400,8 @@ def _featured_products(limit=3):
             continue
 
         featured.append({
+            'id': product.id,
+            'slug': product.slug,
             'name': product.name,
             'description': (product.description or '').strip() or 'Curated premium fashion for confident everyday wear.',
             'price': _format_money(_safe_decimal(product.price, Decimal('0')), 'USD'),
@@ -364,6 +409,30 @@ def _featured_products(limit=3):
             'sizes': product.size_list(),
         })
     return featured
+
+
+def _safe_same_site_path(path):
+    """Allow only relative same-site redirects (no open redirect)."""
+    path = (path or '').strip()
+    if path.startswith('/') and not path.startswith('//'):
+        return path
+    return ''
+
+
+def _redirect_after_cart_action(request, product, *, success=False, error_message=''):
+    next_path = _safe_same_site_path(request.POST.get('next'))
+    if success:
+        messages.success(request, f'Added {product.name} to your cart.')
+        if next_path:
+            return redirect(next_path)
+        return redirect('cart')
+    if error_message:
+        messages.error(request, error_message)
+    if next_path:
+        return redirect(next_path)
+    if product.slug:
+        return redirect('product_detail', slug=product.slug)
+    return redirect('shop')
 
 
 def _safe_decimal(value, default):
@@ -577,8 +646,9 @@ def signup_view(request):
             user = form.save()
             login(request, user)
             _merge_guest_cart_into_user(request, user, session_key=pre_login_session_key)
-            messages.success(request, 'Account created successfully. Welcome to East Africa Fashion.')
-            return redirect('home')
+            _attach_guest_orders_to_user(request, user)
+            messages.success(request, 'Account created successfully. Welcome to Kistie Store.')
+            return redirect('order_history')
         messages.error(request, 'Please correct the signup form and try again.')
     else:
         form = UserCreationForm()
@@ -611,6 +681,7 @@ def login_view(request):
             user = form.get_user()
             login(request, user)
             _merge_guest_cart_into_user(request, user, session_key=pre_login_session_key)
+            _attach_guest_orders_to_user(request, user)
             messages.success(request, f'Welcome back, {user.username}.')
             return redirect('home')
 
@@ -694,13 +765,39 @@ def logout_view(request):
 
 @login_required
 def order_history(request):
-    orders = (
+    orders = orders_with_timelines(
         Order.objects.filter(user=request.user)
         .prefetch_related('items')
         .order_by('-created_at')
     )
     return render(request, 'core/order_history.html', {
         'orders': orders,
+    })
+
+
+def order_track(request):
+    order = None
+    form_order_ref = (request.GET.get('order_ref') or request.POST.get('order_ref') or '').strip().upper()
+    form_phone = (request.POST.get('phone') or request.GET.get('phone') or '').strip()
+
+    if not form_order_ref and request.session.get('last_order_ref'):
+        form_order_ref = request.session['last_order_ref']
+
+    if request.method == 'POST':
+        order = Order.objects.filter(order_ref=form_order_ref).prefetch_related('items').first()
+        if order and _phone_matches(order.phone, form_phone):
+            order.timeline_steps = order_timeline(order)
+        else:
+            order = None
+            messages.error(
+                request,
+                'We could not find an order with that reference and phone number. Check and try again.',
+            )
+
+    return render(request, 'core/order_track.html', {
+        'order': order,
+        'form_order_ref': form_order_ref,
+        'form_phone': form_phone,
     })
 
 
@@ -859,8 +956,10 @@ def _shop_product_rows(products, checkout):
         detail_url = _product_image_url(images[1].image) if len(images) > 1 else primary_url
 
         review_label = ''
-        if product.review_count and product.review_avg is not None:
-            review_label = f'{product.review_avg:.1f} ★ ({product.review_count})'
+        review_count = getattr(product, 'review_count', None)
+        review_avg = getattr(product, 'review_avg', None)
+        if review_count and review_avg is not None:
+            review_label = f'{review_avg:.1f} ★ ({review_count})'
 
         rows.append({
             'product': product,
@@ -874,6 +973,129 @@ def _shop_product_rows(products, checkout):
             'has_image': bool(images),
         })
     return rows
+
+
+def _product_description_display(product):
+    description = (product.description or '').strip()
+    if description.lower() == 'auto-created from uploaded catalog image.':
+        description = ''
+    return description or _catalog_fallback_description(product)
+
+
+def _product_image_gallery(product):
+    gallery = []
+    for img in product.images.all():
+        gallery.append({
+            'url': _product_image_url(img.image),
+            'alt': img.alt_text or product.name,
+        })
+    return gallery
+
+
+def _build_whatsapp_product_url(request, product, size=''):
+    page_url = request.build_absolute_uri(product.get_absolute_url())
+    lines = [
+        "Hi Kistie Store! I'm interested in:",
+        f'• {product.name} (SKU #{product.id})',
+        f'• {page_url}',
+    ]
+    if size:
+        lines.append(f'• EU size: {size}')
+    text = '\n'.join(lines)
+    return f'https://wa.me/256704757198?{urlencode({"text": text})}'
+
+
+def product_detail(request, slug):
+    product = get_object_or_404(
+        Product.objects.select_related('category')
+        .annotate(
+            review_avg=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
+            review_count=Count('reviews', filter=Q(reviews__is_approved=True)),
+        )
+        .prefetch_related(
+            Prefetch('images', queryset=ProductImage.objects.order_by('id')),
+        ),
+        slug=slug,
+    )
+    record_product_view(request, product.pk)
+
+    try:
+        checkout = _checkout_preferences(request)
+    except Exception:
+        logger.exception('product detail checkout prefs failed; using USD fallback')
+        checkout = {
+            'currency': 'USD',
+            'rate': Decimal('1'),
+            'payment_method': 'mtn',
+            'rates_source': 'fallback',
+            'rates_updated': '',
+        }
+
+    base_price = _safe_decimal(product.price_usd, Decimal('0'))
+    converted_price = base_price * checkout['rate']
+    old_price_display = ''
+    if product.old_price and product.old_price > product.price_usd:
+        old_converted = _safe_decimal(product.old_price, Decimal('0')) * checkout['rate']
+        old_price_display = _format_money(old_converted, checkout['currency'])
+
+    review_count = getattr(product, 'review_count', 0) or 0
+    review_avg = getattr(product, 'review_avg', None)
+    review_label = ''
+    if review_count and review_avg is not None:
+        review_label = f'{review_avg:.1f} ★ ({review_count})'
+
+    related_qs = (
+        Product.objects.filter(category=product.category)
+        .exclude(pk=product.pk)
+        .annotate(
+            review_avg=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
+            review_count=Count('reviews', filter=Q(reviews__is_approved=True)),
+        )
+        .prefetch_related(Prefetch('images', queryset=ProductImage.objects.order_by('id')))
+        .order_by('-created_at')[:4]
+    )
+    related_rows = _shop_product_rows(related_qs, checkout)
+    recent_qs = recently_viewed_products(request, exclude_product_id=product.pk, limit=4)
+    recent_rows = _shop_product_rows(recent_qs, checkout) if recent_qs else []
+
+    description = _product_description_display(product)
+    gallery = _product_image_gallery(product)
+    canonical_url = request.build_absolute_uri(product.get_absolute_url())
+    approved_reviews = list(
+        ProductReview.objects.filter(product=product, is_approved=True)
+        .select_related('user')
+        .order_by('-created_at')[:12]
+    )
+
+    schema_images = []
+    for item in gallery:
+        schema_images.append(request.build_absolute_uri(item['url']))
+
+    availability = 'https://schema.org/InStock' if product.stock_quantity > 0 else 'https://schema.org/OutOfStock'
+
+    return render(request, 'core/product_detail.html', {
+        'product': product,
+        'description': description,
+        'gallery': gallery,
+        'price_display': _format_money(converted_price, checkout['currency']),
+        'old_price_display': old_price_display,
+        'currency': checkout['currency'],
+        'review_label': review_label,
+        'review_count': review_count,
+        'review_avg': review_avg,
+        'reviews': approved_reviews,
+        'related_rows': related_rows,
+        'recent_rows': recent_rows,
+        'whatsapp_url': _build_whatsapp_product_url(request, product),
+        'canonical_url': canonical_url,
+        'schema_images': schema_images,
+        'schema_price': str(converted_price.quantize(
+            Decimal('1') if checkout['currency'] == 'UGX' else Decimal('0.01'),
+            rounding=ROUND_HALF_UP,
+        )),
+        'schema_availability': availability,
+        'category_name': product.category.name if product.category_id else '',
+    })
 
 
 def catalog(request):
@@ -921,32 +1143,35 @@ def catalog_image(_request, image_name):
     raise Http404('Image not found.')
 
 
+def _build_shop_page_context(request):
+    checkout = _checkout_preferences(request)
+    products, filter_ctx = _shop_filtered_products_queryset(request)
+    shop_rows = _shop_product_rows(products, checkout)
+    return {
+        'shop_rows': shop_rows,
+        'currency': checkout['currency'],
+        'supported_currencies': SUPPORTED_CURRENCIES,
+        'payment_method': checkout['payment_method'],
+        'payment_methods': PAYMENT_METHODS,
+        'rates_source': checkout['rates_source'],
+        'rates_updated': checkout['rates_updated'],
+        'rate_display': _format_money(checkout['rate'], checkout['currency']),
+        'categories': Category.objects.all().order_by('name'),
+        'total_items': len(shop_rows),
+        **filter_ctx,
+    }
+
+
 def shop(request):
     """Single storefront (Shop page only): template ``core/shop.html``. No ``inventory.html`` / catalog HTML."""
     try:
-        checkout = _checkout_preferences(request)
-        products, filter_ctx = _shop_filtered_products_queryset(request)
-        shop_rows = _shop_product_rows(products, checkout)
-
-        return render(request, 'core/shop.html', {
-            'shop_rows': shop_rows,
-            'currency': checkout['currency'],
-            'supported_currencies': SUPPORTED_CURRENCIES,
-            'payment_method': checkout['payment_method'],
-            'payment_methods': PAYMENT_METHODS,
-            'rates_source': checkout['rates_source'],
-            'rates_updated': checkout['rates_updated'],
-            'rate_display': _format_money(checkout['rate'], checkout['currency']),
-            'categories': Category.objects.all().order_by('name'),
-            'total_items': len(shop_rows),
-            **filter_ctx,
-        })
+        ctx = _build_shop_page_context(request)
     except Exception:
         logger.exception('shop page failed; using fallback rates')
         products, filter_ctx = _shop_filtered_products_queryset(request)
         fallback_checkout = {'currency': 'USD', 'rate': Decimal('1')}
         shop_rows = _shop_product_rows(products, fallback_checkout)
-        return render(request, 'core/shop.html', {
+        ctx = {
             'shop_rows': shop_rows,
             'currency': 'USD',
             'supported_currencies': SUPPORTED_CURRENCIES,
@@ -960,12 +1185,18 @@ def shop(request):
             'categories': Category.objects.all().order_by('name'),
             'total_items': len(shop_rows),
             **filter_ctx,
-        })
+        }
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        html = render_to_string('core/_shop_results.html', ctx, request=request)
+        return JsonResponse({'html': html, 'total_items': ctx['total_items']})
+
+    return render(request, 'core/shop.html', ctx)
 
 
 @require_POST
 def add_to_cart(request, product_id):
-    product = Product.objects.get(id=product_id)
+    product = get_object_or_404(Product, id=product_id)
     size = request.POST.get('size', '')
     try:
         quantity = int(request.POST.get('quantity', 1))
@@ -977,19 +1208,28 @@ def add_to_cart(request, product_id):
     available_sizes = product.size_list()
 
     if available_sizes and size not in available_sizes:
-        messages.error(request, 'Please choose one of the listed EU sizes before adding this item to cart.')
-        return redirect('shop')
+        return _redirect_after_cart_action(
+            request,
+            product,
+            error_message='Please choose one of the listed EU sizes before adding this item to cart.',
+        )
 
     if product.stock_quantity <= 0:
-        messages.error(request, 'This item is currently out of stock.')
-        return redirect('shop')
+        return _redirect_after_cart_action(
+            request,
+            product,
+            error_message='This item is currently out of stock.',
+        )
 
     cart = _current_cart(request, create=True)
     item = CartItem.objects.filter(cart=cart, product=product, size=size, color=color).first()
     requested_quantity = quantity if item is None else item.quantity + quantity
     if requested_quantity > product.stock_quantity:
-        messages.error(request, f'Only {product.stock_quantity} unit(s) available for {product.name}.')
-        return redirect('shop')
+        return _redirect_after_cart_action(
+            request,
+            product,
+            error_message=f'Only {product.stock_quantity} unit(s) available for {product.name}.',
+        )
 
     if item is not None:
         item.quantity += quantity
@@ -997,7 +1237,7 @@ def add_to_cart(request, product_id):
         item = CartItem(cart=cart, product=product, size=size, color=color, quantity=quantity)
 
     item.save()
-    return HttpResponseRedirect(reverse('cart'))
+    return _redirect_after_cart_action(request, product, success=True)
 
 
 def cart(request):
@@ -1204,13 +1444,13 @@ def _checkout_post(request, cart, cart_items, checkout_prefs, grand_total, conte
                 'Your order is saved — please contact us to complete payment.',
             )
 
-    return render(request, 'core/checkout_success.html', {
-        'order': order,
-        'currency': checkout_prefs['currency'],
-        'grand_total_display': _format_money(grand_total, checkout_prefs['currency']),
-        'payment_method': checkout_prefs['payment_method'],
-        'instructions': _payment_instructions(form_data['country'], checkout_prefs['payment_method']),
-    })
+    return _render_checkout_success(
+        request,
+        order,
+        checkout_prefs,
+        grand_total,
+        _payment_instructions(form_data['country'], checkout_prefs['payment_method']),
+    )
 
 
 def checkout(request):
@@ -1306,7 +1546,10 @@ def pesapal_ipn_callback(request):
             Order.STATUS_FAILED,
         )
         if order_ref and new_status in valid_statuses:
-            Order.objects.filter(order_ref=order_ref).update(status=new_status)
+            order = Order.objects.filter(order_ref=order_ref).first()
+            if order:
+                order.status = new_status
+                order.save(update_fields=['status'])
         return JsonResponse({'ok': True})
     except Exception as exc:
         return JsonResponse({'error': str(exc)}, status=400)
@@ -1319,13 +1562,13 @@ def pesapal_callback(request):
     if not order:
         messages.error(request, 'Order not found.')
         return redirect('cart')
-    return render(request, 'core/checkout_success.html', {
-        'order': order,
-        'currency': order.currency,
-        'grand_total_display': str(order.total_amount),
-        'payment_method': order.payment_method,
-        'instructions': 'Your Pesapal payment is being verified. Your order status will update shortly.',
-    })
+    return _render_checkout_success(
+        request,
+        order,
+        None,
+        None,
+        'Your Pesapal payment is being verified. Your order status will update shortly.',
+    )
 
 
 # ---------------------------------------------------------------------------

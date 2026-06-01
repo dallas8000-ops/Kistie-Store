@@ -1301,46 +1301,190 @@ body {
    HYBRID BOUTIQUE DESIGN — NEW COMPONENTS
    ============================================================ */
 
-/* --- Floating WhatsApp Button --- */
-.whatsapp-float {
+/* --- Support FAB (WhatsApp + AI chat) --- */
+.kistie-support-stack {
   position: fixed;
-  bottom: 5.25rem;
-  right: 1.4rem;
-  z-index: 1200;
-  width: 54px;
-  height: 54px;
+  bottom: 1.35rem;
+  right: 1.25rem;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.kistie-fab-toggle {
+  width: 56px;
+  height: 56px;
   border-radius: 999px;
-  background: #25d366;
-  color: #0a3d1e;
+  border: none;
+  background: linear-gradient(145deg, var(--secondary), color-mix(in srgb, var(--accent) 55%, var(--secondary)));
+  color: var(--primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 22px rgba(37, 211, 102, 0.45);
-  text-decoration: none;
+  font-size: 1.35rem;
+  cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-@media (max-width: 575.98px) {
-  .whatsapp-float {
-    width: 48px;
-    height: 48px;
-    right: 0.8rem;
-    bottom: 4.5rem;
-  }
+.kistie-fab-toggle:hover {
+  transform: scale(1.06);
 }
 
-.whatsapp-float:hover {
-  transform: scale(1.09);
-  box-shadow: 0 10px 28px rgba(37, 211, 102, 0.55);
+.kistie-fab-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 168px;
+}
+
+.kistie-fab-menu[hidden] {
+  display: none !important;
+}
+
+.kistie-fab-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.kistie-fab-action--wa {
+  background: #25d366;
+  color: #0a3d1e;
+  border-color: transparent;
+}
+
+.kistie-fab-action--chat {
+  background: var(--surface-soft);
+}
+
+.kistie-chat-window {
+  display: none;
+  flex-direction: column;
+  width: min(340px, calc(100vw - 2rem));
+  max-height: min(420px, 70vh);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.kistie-chat-window.open {
+  display: flex;
+}
+
+.kistie-chat-header {
+  background: linear-gradient(105deg, var(--primary), color-mix(in srgb, var(--accent) 40%, var(--primary)));
   color: #fff;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.whatsapp-float svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-  display: block;
-  flex-shrink: 0;
+.kistie-chat-header button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.kistie-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  min-height: 200px;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.kc-msg {
+  max-width: 82%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.kc-msg.bot {
+  background: color-mix(in srgb, var(--secondary) 22%, var(--surface));
+  color: var(--text);
+  align-self: flex-start;
+}
+
+.kc-msg.user {
+  background: var(--secondary);
+  color: var(--primary);
+  align-self: flex-end;
+}
+
+.kc-msg.typing {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.kistie-chat-form {
+  display: flex;
+  border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  background: var(--surface);
+}
+
+.kistie-chat-form input {
+  flex: 1;
+  border: none;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.kistie-chat-form button {
+  background: var(--secondary);
+  color: var(--primary);
+  border: none;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.shop-results-root--loading {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+@media (max-width: 575.98px) {
+  .kistie-support-stack {
+    bottom: 1rem;
+    right: 0.75rem;
+  }
+
+  .kistie-fab-toggle {
+    width: 50px;
+    height: 50px;
+  }
 }
 
 /* --- Text-based Category Tiles (no images needed) --- */
@@ -2070,7 +2214,7 @@ body.theme-dark .admin-link {
   }
 }
 
-/* --- Permanent clearance: keep floating WhatsApp from covering footer admin links --- */
+/* --- Permanent clearance: keep support FAB from covering footer admin links --- */
 @media (min-width: 576px) {
   .admin-links {
     padding-right: 4.8rem;
@@ -2083,3 +2227,258 @@ body.theme-dark .admin-link {
   }
 }
 
+/* --- Product detail page (PDP) --- */
+.pdp-shell {
+  padding-bottom: 0.5rem;
+}
+
+body.pdp-page-active .site-shell {
+  padding-bottom: 5.5rem;
+}
+
+@media (min-width: 768px) {
+  body.pdp-page-active .site-shell {
+    padding-bottom: 0;
+  }
+}
+
+.pdp-carousel-image,
+.pdp-carousel--empty {
+  width: 100%;
+  min-height: min(34vh, 320px);
+  max-height: min(48vh, 480px);
+  object-fit: contain;
+  background: var(--surface-soft);
+}
+
+.pdp-carousel--empty {
+  min-height: min(34vh, 320px);
+}
+
+.pdp-thumb-btn {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.pdp-thumb-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pdp-thumb-btn.active {
+  border-color: var(--secondary);
+}
+
+.pdp-buy-panel .inventory-add-btn {
+  min-height: 48px;
+}
+
+/* PDP price: override shop catalog-price (#0f2239) for readable contrast on dark shells */
+.pdp-shell .catalog-price.pdp-price {
+  color: var(--text);
+  font-size: clamp(1.75rem, 4.5vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+body.theme-dark .pdp-shell .catalog-price.pdp-price {
+  color: var(--secondary);
+  text-shadow: 0 1px 12px color-mix(in srgb, var(--secondary) 35%, transparent);
+}
+
+.pdp-shell .catalog-price.pdp-price .text-muted {
+  color: var(--text-muted) !important;
+  font-size: 0.55em;
+  font-weight: 600;
+}
+
+.pdp-buy-panel h1 {
+  color: var(--text);
+}
+
+.pdp-shell .pdp-description {
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.pdp-sticky-price {
+  color: var(--text-muted);
+}
+
+.pdp-sticky-price strong {
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+body.theme-dark .pdp-sticky-price strong {
+  color: var(--secondary);
+}
+
+.pdp-related-image {
+  height: 140px;
+  object-fit: cover;
+}
+
+.pdp-related-card {
+  color: inherit;
+}
+
+.pdp-related-card:hover {
+  opacity: 0.92;
+}
+
+.pdp-sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1040;
+  background: var(--surface);
+  border-top: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+  padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pdp-sticky-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.pdp-sticky-price strong {
+  font-size: 1.05rem;
+}
+
+body.pdp-page-active .kistie-support-stack {
+  bottom: 5.25rem;
+}
+
+@media (max-width: 575.98px) {
+  body.pdp-page-active .kistie-support-stack {
+    bottom: 4.75rem;
+  }
+
+  .pdp-description {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .pdp-buy-panel .inventory-inline-label {
+    width: 100%;
+  }
+
+  .pdp-buy-panel .inventory-inline-select,
+  .pdp-buy-panel .inventory-quantity-input {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 768px) {
+  .pdp-layout {
+    align-items: flex-start;
+  }
+
+  .pdp-buy-panel {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+body.theme-dark .pdp-sticky-bar {
+  background: var(--surface);
+}
+
+body.theme-dark .breadcrumb-item a {
+  color: var(--secondary);
+}
+
+/* --- Order tracking timeline --- */
+.order-timeline {
+  position: relative;
+  padding-left: 0.25rem;
+}
+
+.order-timeline__step {
+  position: relative;
+  display: flex;
+  gap: 0.85rem;
+  padding-bottom: 1.15rem;
+  padding-left: 1.75rem;
+}
+
+.order-timeline__step:last-child {
+  padding-bottom: 0;
+}
+
+.order-timeline__step::before {
+  content: '';
+  position: absolute;
+  left: 0.45rem;
+  top: 1.1rem;
+  bottom: 0;
+  width: 2px;
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+.order-timeline__step:last-child::before {
+  display: none;
+}
+
+.order-timeline__marker {
+  position: absolute;
+  left: 0;
+  top: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--text) 28%, transparent);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.order-timeline__step--complete .order-timeline__marker {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary) 28%, transparent);
+}
+
+.order-timeline__step--current .order-timeline__marker {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.order-timeline__step--failed .order-timeline__marker {
+  background: #dc3545;
+  border-color: #dc3545;
+}
+
+.order-timeline__step--upcoming .order-timeline__marker {
+  opacity: 0.45;
+}
+
+.order-timeline__step--upcoming .order-timeline__label {
+  opacity: 0.65;
+}
+
+.order-timeline__label {
+  color: var(--text);
+}
+
+.order-timeline__when {
+  font-size: 0.78rem;
+}

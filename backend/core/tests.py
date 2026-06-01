@@ -8,8 +8,11 @@ suite ends with OK.
 """
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
+
+from inventory.models import Category, Product
 
 # Values used only in test POST payloads / create_user calls (not production).
 _PW_SIGNUP = 'StrongPass123!'
@@ -88,6 +91,51 @@ class ShopPageTests(TestCase):
         response = self.client.get(reverse('shop'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'core/shop.html')
+
+    def test_shop_ajax_returns_json_fragment(self):
+        response = self.client.get(
+            reverse('shop'),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('html', data)
+        self.assertIn('total_items', data)
+
+
+class ProductDetailPageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(name='Dresses', description='')
+        cls.product = Product.objects.create(
+            name='Test Emerald Dress',
+            description='A lovely dress for testing.',
+            price_usd=Decimal('99.00'),
+            price_ugx=Decimal('0'),
+            category=cls.category,
+            stock_quantity=5,
+            sizes='38,40',
+        )
+
+    def test_product_detail_by_slug(self):
+        response = self.client.get(reverse('product_detail', args=[self.product.slug]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'core/product_detail.html')
+        self.assertContains(response, self.product.name)
+        self.assertContains(response, 'application/ld+json')
+
+    def test_product_detail_404_unknown_slug(self):
+        response = self.client.get(reverse('product_detail', args=['no-such-product']))
+        self.assertEqual(response.status_code, 404)
+
+    def test_add_to_cart_returns_to_pdp_when_next_set(self):
+        url = reverse('product_detail', args=[self.product.slug])
+        response = self.client.post(
+            reverse('add_to_cart', args=[self.product.id]),
+            data={'size': '38', 'quantity': 1, 'next': url},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, url)
 
 
 class StaffDashboardPermissionTests(TestCase):

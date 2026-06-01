@@ -47,97 +47,16 @@
         <div class="col-12 d-flex gap-2 align-items-center flex-wrap shop-filter-actions">
           <button type="submit" class="btn btn-sm btn-brand-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Apply <small style="opacity:0.85;">(Gikola)</small></button>
           <a class="btn btn-sm btn-brand-ghost" href="{% url 'shop' %}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset</a>
-          <span class="badge-count"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> {{ total_items }} items</span>
+          <span id="shopItemCount" class="badge-count"><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i> <span class="shop-item-count-num">{{ total_items }}</span> items</span>
           <a class="btn btn-sm btn-light fw-semibold" href="{% url 'shop' %}"><i class="bi bi-house-door" aria-hidden="true"></i> Shop home</a>
         </div>
       </div>
     </form>
   </div>
 
-  {% if shop_rows %}
-  <section class="catalog-date-section float-in delay-1">
-    <div class="catalog-grid catalog-product-grid">
-      {% for row in shop_rows %}
-      {% with product=row.product %}
-      <article class="catalog-card catalog-product-card inventory-shop-card">
-        <div class="shop-card-layout">
-        {% if row.has_image %}
-        <div class="shop-product-media">
-          <img src="{{ row.detail_url }}" alt="{{ product.name }}" loading="lazy" class="shop-product-image">
-        </div>
-        {% else %}
-        <div class="shop-product-media d-flex align-items-center justify-content-center bg-secondary text-white shop-product-media--empty">No Image<br><small style="opacity:0.8;">Tewali Kifaananyi</small></div>
-        {% endif %}
-        <div class="catalog-product-body shop-card-copy">
-          <div class="d-flex justify-content-between align-items-start gap-2 mb-2 shop-card-head">
-            <h2 class="h5 fw-semibold mb-0 flex-grow-1">{{ product.name }}</h2>
-            <button type="button"
-              class="btn btn-sm btn-brand-outline flex-shrink-0 quick-view-trigger lh-1"
-              data-bs-toggle="modal"
-              data-bs-target="#productQuickViewModal"
-              data-qv-name="{{ product.name|escapejs }}"
-              data-qv-desc="{{ row.description|truncatewords:70|escapejs }}"
-              data-qv-img="{{ row.detail_url|escapejs }}"
-              data-qv-price="{{ row.price_display|escapejs }}"
-              data-qv-currency="{{ currency|escapejs }}"
-              data-qv-stock="{{ product.stock_quantity }}"
-              data-qv-sizes="{{ product.sizes|default:''|escapejs }}"
-              aria-label="Quick view {{ product.name }}">
-              <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i> Quick view<br><small style="font-weight:normal;opacity:0.75;font-size:0.65rem;">Laba Mangu</small>
-            </button>
-          </div>
-          <p class="catalog-description mb-2">{{ row.description }}</p>
-          <p class="catalog-price mb-1">
-            {{ currency }} {{ row.price_display }}
-            {% if product.old_price and product.old_price > product.price_usd %}
-            <span class="text-muted text-decoration-line-through ms-2 small">USD {{ product.old_price }}</span>
-            {% endif %}
-          </p>
-          {% if row.review_label or row.category_name %}
-          <p class="small text-muted mb-2">
-            {% if row.review_label %}<span class="text-warning">{{ row.review_label }}</span>{% endif %}
-            {% if row.review_label and row.category_name %} · {% endif %}
-            {% if row.category_name %}{{ row.category_name }}{% endif %}
-          </p>
-          {% endif %}
-          <div class="mb-2">
-            {% if product.stock_quantity > 0 %}
-            <span class="badge text-bg-success">In stock: {{ product.stock_quantity }} <small style="opacity:0.85;">(Waliwo)</small></span>
-            {% else %}
-            <span class="badge text-bg-danger">Out of stock <small style="opacity:0.85;">(Tekiriwo)</small></span>
-            {% endif %}
-            {% if product.color %}
-            <span class="badge text-bg-secondary ms-1">{{ product.color }}</span>
-            {% endif %}
-          </div>
-          <form method="post" action="{% url 'add_to_cart' product.id %}" class="inventory-purchase-form border-top pt-3 mt-1">
-            {% csrf_token %}
-            <div class="mb-2 inventory-control-group">
-              <label class="fw-bold inventory-inline-label" for="size-{{ product.id }}">EU Size <small class="text-muted">(Saizi)</small>:</label>
-              <select id="size-{{ product.id }}" name="size" class="form-select inventory-inline-select ms-2">
-                {% for size in product.size_list %}
-                <option value="{{ size }}">EU {{ size }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="d-flex align-items-center mb-3 inventory-control-group">
-              <label class="fw-bold me-2 inventory-inline-label" for="quantity-{{ product.id }}">Quantity <small class="text-muted">(Omuwendo)</small>:</label>
-              <input id="quantity-{{ product.id }}" type="number" name="quantity" value="1" min="1" max="{{ product.stock_quantity }}" class="form-control inventory-quantity-input">
-            </div>
-            <button type="submit" class="btn btn-lg w-100 inventory-add-btn" {% if product.stock_quantity == 0 %}disabled{% endif %}><i class="bi bi-cart-plus" aria-hidden="true"></i> Add to Cart<br><small style="font-weight:normal;opacity:0.85;">Gattako mu Kikapu</small></button>
-          </form>
-        </div>
-        </div>
-      </article>
-      {% endwith %}
-      {% endfor %}
-    </div>
-  </section>
-  {% else %}
-  <section class="catalog-date-section">
-    <p class="mb-0">No products match these filters. Try adjusting category or price, or <a href="{% url 'shop' %}">reset</a>.</p>
-  </section>
-  {% endif %}
+  <div id="shopResultsRoot" class="shop-results-root" aria-live="polite" aria-busy="false">
+    {% include 'core/_shop_results.html' %}
+  </div>
 </div>
 
 {# Bootstrap modal: product quick view (filled via data-* on .quick-view-trigger) - positioned at body level to avoid clipping #}
@@ -254,21 +173,74 @@
     }
 
     const form = document.getElementById('shopFiltersForm');
-    const currencySelect = document.getElementById('inventoryCurrency');
-    const methodSelect = document.getElementById('inventoryMethod');
+    const resultsRoot = document.getElementById('shopResultsRoot');
+    const itemCountEl = document.querySelector('#shopItemCount .shop-item-count-num');
+    let filterDebounce = null;
 
-    function submitFilters() {
-      if (form) {
+    function shopQueryString() {
+      if (!form) return '';
+      const params = new URLSearchParams(new FormData(form));
+      return params.toString();
+    }
+
+    function updateItemCount(n) {
+      if (itemCountEl) itemCountEl.textContent = String(n);
+    }
+
+    async function loadShopResults(pushUrl) {
+      if (!form || !resultsRoot) return;
+      const qs = shopQueryString();
+      const url = qs ? ('{% url "shop" %}?' + qs) : '{% url "shop" %}';
+      resultsRoot.setAttribute('aria-busy', 'true');
+      resultsRoot.classList.add('shop-results-root--loading');
+      try {
+        const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await res.json();
+        if (!res.ok || !data.html) throw new Error('bad response');
+        resultsRoot.innerHTML = data.html;
+        updateItemCount(data.total_items);
+        if (pushUrl) {
+          history.pushState({ shopFilters: true }, '', url);
+        }
+      } catch (e) {
+        console.error(e);
         form.submit();
+      } finally {
+        resultsRoot.setAttribute('aria-busy', 'false');
+        resultsRoot.classList.remove('shop-results-root--loading');
       }
     }
 
-    if (currencySelect) {
-      currencySelect.addEventListener('change', submitFilters);
+    function scheduleFilterLoad(pushUrl) {
+      clearTimeout(filterDebounce);
+      filterDebounce = setTimeout(function () { loadShopResults(pushUrl); }, 350);
     }
-    if (methodSelect) {
-      methodSelect.addEventListener('change', submitFilters);
+
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        loadShopResults(true);
+      });
+      form.querySelectorAll('select').forEach(function (el) {
+        el.addEventListener('change', function () { loadShopResults(true); });
+      });
+      ['priceMin', 'priceMax', 'sizeFilter'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', function () { scheduleFilterLoad(true); });
+        }
+      });
     }
+
+    window.addEventListener('popstate', function () {
+      if (!form) return;
+      const params = new URLSearchParams(window.location.search);
+      form.querySelectorAll('input, select').forEach(function (el) {
+        if (!el.name) return;
+        el.value = params.get(el.name) || '';
+      });
+      loadShopResults(false);
+    });
 
     /* ── Size Recommendation ── */
     const sizeBtn = document.getElementById('qvSizeBtn');
@@ -320,124 +292,5 @@
       });
     }
   })();
-</script>
-
-{# ── AI Chat Bubble ── #}
-<style>
-  #kistie-chat-bubble { position:fixed; bottom:1.5rem; right:1.5rem; z-index:2000; }
-  #kistie-chat-toggle { width:56px; height:56px; border-radius:50%; background:var(--brand-primary,#7c3aed); color:#fff; border:none; font-size:1.5rem; box-shadow:0 4px 16px rgba(0,0,0,.25); cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  #kistie-chat-window { display:none; position:fixed; bottom:5rem; right:1.5rem; width:340px; max-width:calc(100vw - 2rem); background:#fff; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:2001; flex-direction:column; overflow:hidden; pointer-events:auto; }
-  #kistie-chat-window.open { display:flex; }
-  #kistie-chat-header { background:var(--brand-primary,#7c3aed); color:#fff; padding:.75rem 1rem; font-weight:600; font-size:.95rem; display:flex; justify-content:space-between; align-items:center; }
-  #kistie-chat-header button { background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer; line-height:1; }
-  #kistie-chat-messages { flex:1; overflow-y:auto; padding:.75rem; min-height:220px; max-height:320px; display:flex; flex-direction:column; gap:.5rem; }
-  .kc-msg { max-width:82%; padding:.5rem .75rem; border-radius:12px; font-size:.875rem; line-height:1.4; word-break:break-word; }
-  .kc-msg.bot { background:#f3f0ff; color:#3b0764; align-self:flex-start; border-bottom-left-radius:4px; }
-  .kc-msg.user { background:var(--brand-primary,#7c3aed); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
-  .kc-msg.typing { color:#888; font-style:italic; }
-  #kistie-chat-form { display:flex; border-top:1px solid #e9ecef; background:#fff; }
-  #kistie-chat-input { flex:1; border:none; padding:.6rem .75rem; font-size:.875rem; outline:none; background:#fff; color:#212529; caret-color:#212529; }
-  #kistie-chat-input::placeholder { color:#6c757d; }
-  #kistie-chat-send { background:var(--brand-primary,#7c3aed); color:#fff; border:none; padding:.6rem .9rem; cursor:pointer; font-size:1rem; }
-</style>
-
-<div id="kistie-chat-bubble">
-  <div id="kistie-chat-window" role="dialog" aria-label="Kistie shopping assistant">
-    <div id="kistie-chat-header">
-      <span>🛍 Kistie Assistant <small style="opacity:.8;font-weight:400;">(AI)</small></span>
-      <button id="kistie-chat-close" aria-label="Close chat">×</button>
-    </div>
-    <div id="kistie-chat-messages" aria-live="polite"></div>
-    <form id="kistie-chat-form" autocomplete="off">
-      <input id="kistie-chat-input" type="text" placeholder="Ask about sizes, prices… (English or Luganda)" maxlength="400" aria-label="Chat message">
-      <button id="kistie-chat-send" type="submit" aria-label="Send">➤</button>
-    </form>
-  </div>
-  <button id="kistie-chat-toggle" aria-label="Open chat assistant" title="Chat with Kistie AI">
-    <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
-  </button>
-</div>
-
-<script>
-(function () {
-  const toggle   = document.getElementById('kistie-chat-toggle');
-  const chatWin  = document.getElementById('kistie-chat-window');
-  const closeBtn = document.getElementById('kistie-chat-close');
-  const form     = document.getElementById('kistie-chat-form');
-  const input    = document.getElementById('kistie-chat-input');
-  const msgs     = document.getElementById('kistie-chat-messages');
-  if (!toggle || !chatWin || !msgs) return;
-
-  let history = [];
-  let opened  = false;
-
-  function addMsg(text, role) {
-    const div = document.createElement('div');
-    div.className = 'kc-msg ' + role;
-    div.textContent = text;
-    msgs.appendChild(div);
-    msgs.scrollTop = msgs.scrollHeight;
-    return div;
-  }
-
-  function openChat() {
-    chatWin.classList.add('open');
-    toggle.style.display = 'none';
-    if (!opened) {
-      addMsg('Hi! I\'m Kistie, your AI shopping assistant. Ask me about sizes, prices, stock or payment methods — in English or Luganda! 👗', 'bot');
-      opened = true;
-    }
-    input.focus();
-  }
-
-  function closeChat() {
-    chatWin.classList.remove('open');
-    toggle.style.display = '';
-    // Reset session so each reopen starts fresh.
-    history = [];
-    opened = false;
-    msgs.innerHTML = '';
-    input.value = '';
-  }
-
-  toggle.addEventListener('click', openChat);
-  closeBtn.addEventListener('click', closeChat);
-
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    addMsg(text, 'user');
-    history.push({role: 'user', content: text});
-    const typing = addMsg('…', 'bot typing');
-    try {
-      const res = await fetch('/api/chat/', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({message: text, history: history.slice(-6)}),
-      });
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (parseErr) {
-        data = null;
-      }
-      const reply = (data && data.reply)
-        ? data.reply
-        : (!res.ok
-            ? 'Sorry, chat is temporarily busy. Please try again in a moment.'
-            : 'Sorry, I could not get a response right now.');
-      typing.textContent = reply;
-      typing.className = 'kc-msg bot';
-      history.push({role: 'assistant', content: reply});
-      if (history.length > 20) history = history.slice(-20);
-    } catch (err) {
-      typing.textContent = 'Connection issue. Please check internet and try again.';
-      typing.className = 'kc-msg bot';
-    }
-    msgs.scrollTop = msgs.scrollHeight;
-  });
-})();
 </script>
 {% endblock %}

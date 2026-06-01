@@ -3,6 +3,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.urls import reverse
+from django.utils.text import slugify
 
 
 EU_SIZE_RANGE = tuple(str(size) for size in range(32, 56, 2))
@@ -36,6 +38,22 @@ def normalize_eu_sizes(value):
 def validate_eu_sizes(value):
 	normalize_eu_sizes(value)
 
+
+def unique_product_slug(name, exclude_pk=None):
+	"""Stable URL slug from product name; append -2, -3, … on collision."""
+	base = slugify(name)[:200] or 'product'
+	slug = base
+	counter = 2
+	qs = Product.objects.all()
+	if exclude_pk is not None:
+		qs = qs.exclude(pk=exclude_pk)
+	while qs.filter(slug=slug).exists():
+		suffix = f'-{counter}'
+		slug = f'{base[: 200 - len(suffix)]}{suffix}'
+		counter += 1
+	return slug
+
+
 class Category(models.Model):
 	name = models.CharField(max_length=100)
 	description = models.TextField(blank=True)
@@ -49,6 +67,7 @@ class Category(models.Model):
 
 class Product(models.Model):
 	name = models.CharField(max_length=200)
+	slug = models.SlugField(max_length=220, unique=True, blank=True)
 	description = models.TextField(blank=True)
 	price_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Price in USD')
 	price_ugx = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Price in UGX (Ugandan Shilling)')
@@ -80,14 +99,22 @@ class Product(models.Model):
 			self.sizes = ','.join(normalize_eu_sizes(self.sizes))
 
 	def save(self, *args, **kwargs):
+		if not self.slug:
+			self.slug = unique_product_slug(self.name, exclude_pk=self.pk)
 		# Always derive availability from quantity (single source of truth).
 		self.in_stock = self.stock_quantity > 0
 		# Admin/list saves often use save(update_fields=['stock_quantity']) — without merging,
 		# "in_stock" would never be written and the storefront still sees out-of-stock.
 		update_fields = kwargs.get('update_fields')
 		if update_fields is not None:
-			kwargs['update_fields'] = tuple(dict.fromkeys(tuple(update_fields) + ('in_stock',)))
+			merged = tuple(dict.fromkeys(tuple(update_fields) + ('in_stock',)))
+			if not self.slug and 'slug' not in merged:
+				merged = tuple(dict.fromkeys(merged + ('slug',)))
+			kwargs['update_fields'] = merged
 		super().save(*args, **kwargs)
+
+	def get_absolute_url(self):
+		return reverse('product_detail', args=[self.slug])
 
 	def __str__(self):
 		return self.name
