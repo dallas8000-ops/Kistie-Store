@@ -38,7 +38,11 @@ services:
       - key: DJANGO_DEFAULT_FROM_EMAIL
         value: "dallas8000@gmail.com"
       - key: SITE_URL
-        sync: false
+        value: "https://kristie-store.onrender.com"
+      - key: WHATSAPP_STORE_NUMBER
+        value: "256704757198"
+      - key: ORDER_ALERT_EMAIL
+        value: "dallas8000@gmail.com"
       - key: INSTAGRAM_PROFILE_URL
         value: "https://www.instagram.com/kistie_storeug/"
 

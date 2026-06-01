@@ -180,10 +180,14 @@ class OrderTrackingTests(TestCase):
 		order.status = Order.STATUS_SHIPPED
 		order.tracking_url = 'https://courier.example/track/1'
 		order.save()
-		self.assertEqual(len(mail.outbox), 1)
-		self.assertIn(order.order_ref, mail.outbox[0].subject)
-		self.assertIn('Shipped', mail.outbox[0].body)
-		self.assertIn('https://courier.example/track/1', mail.outbox[0].body)
+		self.assertEqual(len(mail.outbox), 2)
+		subjects = {m.subject for m in mail.outbox}
+		self.assertTrue(any(order.order_ref in s for s in subjects))
+		customer_mail = next(m for m in mail.outbox if m.to == ['buyer@example.com'])
+		self.assertIn('Shipped', customer_mail.body)
+		self.assertIn('https://courier.example/track/1', customer_mail.body)
+		staff_mail = next(m for m in mail.outbox if m.to != ['buyer@example.com'])
+		self.assertIn('wa.me', staff_mail.body)
 
 	def test_status_progression_sets_timestamps(self):
 		order = Order.objects.create(

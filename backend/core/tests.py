@@ -102,7 +102,7 @@ class ShopPageTests(TestCase):
         self.assertIn('html', data)
         self.assertIn('total_items', data)
 
-    def test_shop_search_filters_by_name(self):
+    def test_shop_search_filters_by_vest_keyword(self):
         cat = Category.objects.create(name='Outerwear', description='')
         Product.objects.create(
             name='Navy Check Vest',

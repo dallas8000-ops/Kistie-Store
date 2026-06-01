@@ -9,7 +9,8 @@
       <div class="row g-2 align-items-end justify-content-end shop-filter-grid">
         <div class="col-6 col-lg-4">
           <label for="shopSearch" class="small text-light-emphasis mb-0 d-block">Search <span style="opacity:0.7;">(Noonya)</span></label>
-          <input id="shopSearch" type="search" name="q" class="form-control form-control-sm" placeholder="e.g. blue dress, vest, magenta" value="{{ filter_q }}" autocomplete="off">
+          <input id="shopSearch" type="search" name="q" class="form-control form-control-sm" placeholder="e.g. blue dress size 38, navy vest" value="{{ filter_q }}" autocomplete="off" title="Try natural phrases — we match color, EU size, and keywords">
+          <p id="shopSearchHint" class="small text-white mb-0 mt-1 opacity-75{% if not search_hint %} d-none{% endif %}">{% if search_hint %}Matching: {{ search_hint }}{% endif %}</p>
         </div>
         <div class="col-12 col-sm-6 col-lg-auto">
           <label for="catalogCategory" class="small text-light-emphasis mb-0 d-block">Category <span style="opacity:0.7;">(Ekika)</span></label>
@@ -222,6 +223,12 @@
         if (!res.ok || !data.html) throw new Error('bad response');
         resultsRoot.innerHTML = data.html;
         updateItemCount(data.total_items);
+        const hintEl = document.getElementById('shopSearchHint');
+        if (hintEl) {
+          const hint = data.search_hint || '';
+          hintEl.textContent = hint ? ('Matching: ' + hint) : '';
+          hintEl.classList.toggle('d-none', !hint);
+        }
         if (pushUrl) {
           history.pushState({ shopFilters: true }, '', url);
         }

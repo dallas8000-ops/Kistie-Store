@@ -134,7 +134,9 @@ if EMAIL_HOST == 'smtp.gmail.com' and EMAIL_HOST_PASSWORD:
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False').lower() in ('1', 'true', 'yes', 'on')
 DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@eastafricafashion.local')
 CONTACT_RECIPIENT_EMAIL = os.environ.get('CONTACT_RECIPIENT_EMAIL', 'dallas8000@gmail.com')
-SITE_URL = os.environ.get('SITE_URL', '').strip()
+SITE_URL = os.environ.get('SITE_URL', 'https://kristie-store.onrender.com').strip()
+WHATSAPP_STORE_NUMBER = os.environ.get('WHATSAPP_STORE_NUMBER', '256704757198').strip()
+ORDER_ALERT_EMAIL = os.environ.get('ORDER_ALERT_EMAIL', CONTACT_RECIPIENT_EMAIL).strip()
 # Override on Render/local with your real profile URL if the handle differs.
 INSTAGRAM_PROFILE_URL = os.environ.get(
     'INSTAGRAM_PROFILE_URL',

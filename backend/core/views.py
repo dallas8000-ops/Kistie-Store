@@ -931,13 +931,15 @@ def _shop_filtered_products_queryset(request):
     if size_q:
         products = products.filter(sizes__icontains=size_q)
 
+    search_parsed: dict = {}
     if search_q:
-        products = products.filter(
-            Q(name__icontains=search_q)
-            | Q(description__icontains=search_q)
-            | Q(color__icontains=search_q)
-            | Q(category__name__icontains=search_q)
-        )
+        from core.shop_search import search_hint_label, smart_shop_search
+
+        products, search_parsed = smart_shop_search(products, search_q)
+        if search_parsed.get('eu_size') and not size_q:
+            size_q = search_parsed['eu_size']
+        if search_parsed.get('max_price_usd') is not None and not parsed_max:
+            parsed_max = search_parsed['max_price_usd']
 
     products = products.order_by('-created_at')
 
@@ -947,6 +949,7 @@ def _shop_filtered_products_queryset(request):
         'filter_price_max': (price_max or '').strip(),
         'filter_size': size_q,
         'filter_q': search_q,
+        'search_hint': search_hint_label(search_parsed) if search_q else '',
     }
     return products, filter_ctx
 
@@ -1015,6 +1018,63 @@ def _build_whatsapp_product_url(request, product, size=''):
     return f'https://wa.me/256704757198?{urlencode({"text": text})}'
 
 
+def _related_products_for_pdp(product, limit=4):
+    """Same category first; fill with color/name similarity."""
+    base_qs = (
+        Product.objects.select_related('category')
+        .exclude(pk=product.pk)
+        .filter(stock_quantity__gt=0)
+        .annotate(
+            review_avg=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
+            review_count=Count('reviews', filter=Q(reviews__is_approved=True)),
+        )
+        .prefetch_related(Prefetch('images', queryset=ProductImage.objects.order_by('id')))
+    )
+
+    picked_ids = []
+    rows = []
+
+    if product.category_id:
+        for p in base_qs.filter(category_id=product.category_id).order_by('-created_at')[:limit]:
+            picked_ids.append(p.pk)
+            rows.append(p)
+
+    if len(rows) < limit and product.color:
+        for p in (
+            base_qs.filter(color__icontains=product.color)
+            .exclude(pk__in=picked_ids)
+            .order_by('-created_at')[: limit - len(rows)]
+        ):
+            picked_ids.append(p.pk)
+            rows.append(p)
+
+    if len(rows) < limit:
+        name_tokens = [
+            t.lower()
+            for t in re.findall(r'[a-zA-Z]{4,}', product.name or '')
+            if t.lower() not in ('with', 'dress', 'size', 'women')
+        ][:4]
+        similarity = Q()
+        for token in name_tokens:
+            similarity |= Q(name__icontains=token) | Q(description__icontains=token)
+        if similarity:
+            for p in (
+                base_qs.filter(similarity)
+                .exclude(pk__in=picked_ids)
+                .order_by('-created_at')[: limit - len(rows)]
+            ):
+                picked_ids.append(p.pk)
+                rows.append(p)
+
+    if len(rows) < limit:
+        for p in (
+            base_qs.exclude(pk__in=picked_ids).order_by('-created_at')[: limit - len(rows)]
+        ):
+            rows.append(p)
+
+    return rows
+
+
 def product_detail(request, slug):
     product = get_object_or_404(
         Product.objects.select_related('category')
@@ -1054,17 +1114,10 @@ def product_detail(request, slug):
     if review_count and review_avg is not None:
         review_label = f'{review_avg:.1f} ★ ({review_count})'
 
-    related_qs = (
-        Product.objects.filter(category=product.category)
-        .exclude(pk=product.pk)
-        .annotate(
-            review_avg=Avg('reviews__rating', filter=Q(reviews__is_approved=True)),
-            review_count=Count('reviews', filter=Q(reviews__is_approved=True)),
-        )
-        .prefetch_related(Prefetch('images', queryset=ProductImage.objects.order_by('id')))
-        .order_by('-created_at')[:4]
+    related_rows = _shop_product_rows(
+        _related_products_for_pdp(product),
+        checkout,
     )
-    related_rows = _shop_product_rows(related_qs, checkout)
     recent_qs = recently_viewed_products(request, exclude_product_id=product.pk, limit=4)
     recent_rows = _shop_product_rows(recent_qs, checkout) if recent_qs else []
 
@@ -1199,7 +1252,11 @@ def shop(request):
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         html = render_to_string('core/_shop_results.html', ctx, request=request)
-        return JsonResponse({'html': html, 'total_items': ctx['total_items']})
+        return JsonResponse({
+            'html': html,
+            'total_items': ctx['total_items'],
+            'search_hint': ctx.get('search_hint', ''),
+        })
 
     return render(request, 'core/shop.html', ctx)
 
