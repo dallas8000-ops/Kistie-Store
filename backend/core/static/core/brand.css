@@ -25,13 +25,153 @@ body[data-theme='mono'] {
 }
 
 body.theme-dark {
-  --bg: #140d08;
-  --surface: #1e1410;
-  --surface-soft: #271a12;
-  --text: #f5ede5;
-  --text-muted: #b89e8a;
-  --secondary: #d4a843;
-  --shadow: 0 16px 42px rgba(0, 0, 0, 0.55);
+  --bg: #241a14;
+  --surface: #2f231c;
+  --surface-soft: #3a2d25;
+  --text: #faf4ee;
+  --text-muted: #d4c4b6;
+  --primary: #faf4ee;
+  --secondary: #e0b84d;
+  --accent: #d48494;
+  --shadow: 0 16px 42px rgba(0, 0, 0, 0.4);
+}
+
+/* Keep nav/hero gradients dark while --primary is used for readable body text */
+body.theme-dark .glass-nav {
+  background: linear-gradient(
+    105deg,
+    #2a1e14 0%,
+    color-mix(in srgb, #2a1e14 78%, var(--accent)) 52%,
+    color-mix(in srgb, #2a1e14 65%, var(--secondary)) 100%
+  );
+}
+
+/* Bootstrap + utility contrast in dark mode */
+body.theme-dark .text-dark,
+body.theme-dark .text-body {
+  color: var(--text) !important;
+}
+
+body.theme-dark .text-muted {
+  color: var(--text-muted) !important;
+}
+
+body.theme-dark .text-secondary {
+  color: var(--text-muted) !important;
+}
+
+body.theme-dark .bg-white,
+body.theme-dark .table.bg-white {
+  background-color: var(--surface) !important;
+  color: var(--text);
+}
+
+body.theme-dark .bg-light {
+  background-color: var(--surface-soft) !important;
+  color: var(--text);
+}
+
+body.theme-dark .table {
+  --bs-table-bg: var(--surface);
+  --bs-table-color: var(--text);
+  --bs-table-border-color: color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--text);
+}
+
+body.theme-dark .table-bordered > :not(caption) > * {
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+body.theme-dark .form-control,
+body.theme-dark .form-select {
+  background-color: var(--surface-soft);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+body.theme-dark .form-control::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+body.theme-dark .form-control:focus,
+body.theme-dark .form-select:focus {
+  background-color: var(--surface-soft);
+  color: var(--text);
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 0.2rem var(--ring);
+}
+
+body.theme-dark .modal-content {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+body.theme-dark .modal-header,
+body.theme-dark .modal-footer {
+  border-color: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+body.theme-dark .btn-close {
+  filter: invert(1) grayscale(1);
+  opacity: 0.75;
+}
+
+body.theme-dark .alert {
+  color: var(--text);
+}
+
+body.theme-dark .flash-stack .alert .btn-close {
+  filter: invert(1) grayscale(1);
+}
+
+body.theme-dark .service-card,
+body.theme-dark .ethos-card,
+body.theme-dark .contact-card {
+  color: var(--text);
+}
+
+body.theme-dark .cart-table td[data-label]::before {
+  color: var(--text-muted);
+}
+
+body.theme-dark .catalog-product-card {
+  background: var(--surface);
+  color: var(--text);
+}
+
+body.theme-dark .catalog-product-card .catalog-description {
+  color: var(--text-muted);
+}
+
+body.theme-dark .btn-brand-ghost {
+  color: var(--text) !important;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--surface) 92%, white),
+    color-mix(in srgb, var(--surface-soft) 88%, white)
+  );
+  border-color: color-mix(in srgb, var(--text) 35%, transparent);
+}
+
+body.theme-dark .btn-brand-ghost:hover {
+  color: var(--text) !important;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--surface) 98%, white),
+    color-mix(in srgb, var(--surface-soft) 94%, white)
+  );
+}
+
+body.theme-dark .btn-outline-secondary {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 32%, transparent);
+}
+
+body.theme-dark .btn-outline-secondary:hover {
+  color: var(--text);
+  background-color: color-mix(in srgb, var(--text) 10%, transparent);
+  border-color: color-mix(in srgb, var(--text) 42%, transparent);
 }
 
 * {

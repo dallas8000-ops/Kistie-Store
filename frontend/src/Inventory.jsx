@@ -18,22 +18,22 @@ function Inventory() {
       });
   }, []);
 
-  if (loading) return <div>Loading products...<br /><small className="text-muted">Tukutegeerera ebyatundibwa...</small></div>;
+  if (loading) return <div className="bg-dark text-light p-4 rounded-3">Loading products...<br /><small style={{color: '#fff', opacity: 0.85}}>Tukutegeerera ebyatundibwa...</small></div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
   return (
-    <div>
+    <div className="bg-dark text-light p-4 rounded-3">
       <h2 className="mb-1">Inventory</h2>
-      <small className="text-muted d-block mb-4">Ebyatundibwa</small>
+      <small className="d-block mb-4" style={{color: '#fff', opacity: 0.85}}>Ebyatundibwa</small>
       <div className="row">
         {products.map(product => (
           <div className="col-md-4 mb-4" key={product.id}>
-            <div className="card h-100 shadow-sm">
+            <div className="card h-100 shadow-sm bg-secondary text-light">
               {product.images && product.images.length > 0 ? (
                 <img src={product.images[0].image} className="card-img-top" alt={product.name} style={{height: '250px', objectFit: 'cover'}} />
               ) : (
-                <div className="card-img-top bg-light d-flex align-items-center justify-content-center" style={{height: '250px'}}>
-                  <span className="text-muted">No Image<br /><small>Tewali Kifaananyi</small></span>
+                <div className="card-img-top bg-dark d-flex align-items-center justify-content-center" style={{height: '250px'}}>
+                  <span style={{color: '#fff', opacity: 0.85}}>No Image<br /><small>Tewali Kifaananyi</small></span>
                 </div>
               )}
               <div className="card-body d-flex flex-column">

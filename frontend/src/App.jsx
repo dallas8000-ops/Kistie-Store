@@ -33,7 +33,7 @@ function App() {
           </div>
         </div>
       </nav>
-      <div className="container">
+      <div className="container bg-dark text-light py-4 rounded-3 shadow">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />

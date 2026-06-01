@@ -37,7 +37,7 @@
           {% for image in hero_images %}
           <img src="{% url 'catalog_image' image.name %}" alt="Featured fashion look {{ forloop.counter }}">
           {% empty %}
-          <div class="service-card text-dark" style="color:#1c120a!important;">
+          <div class="service-card">
             No product images found yet. Attach photos to products in Django admin (same as catalog), or add JPG/PNG files under <strong>kistie-store/images/</strong>.
           </div>
           {% endfor %}
