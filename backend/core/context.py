@@ -17,6 +17,7 @@ def feature_flags(_request):
         'ENABLE_ADMIN': settings.ENABLE_ADMIN,
         'instagram_url': profile_url,
         'instagram_handle': _instagram_handle(profile_url),
+        'whatsapp_store_digits': wa_digits,
         'whatsapp_store_url': whatsapp_url(wa_digits, ''),
         'whatsapp_store_display': format_store_phone_display(wa_digits),
     }

@@ -45,8 +45,11 @@
 			<article class="contact-card h-100">
 				<h2 class="h5 page-title mb-0">Contact &amp; Location</h2><small class="text-muted d-block mb-2">Okukwatana n'Owaabwe</small>
 				<p class="text-muted">Kistie_Store works directly with shoppers who want imported looks, sizing guidance, and delivery support from Kampala to international destinations.</p>
-				<p class="mb-1"><strong>Phone:</strong> {{ whatsapp_store_display }}</p>
-				<p class="mb-1"><strong>WhatsApp:</strong> <a href="{{ whatsapp_store_url }}" target="_blank" rel="noopener">{{ whatsapp_store_display }}</a></p>
+				<p class="mb-1"><strong>Phone:</strong> <a href="tel:+{{ whatsapp_store_digits }}">{{ whatsapp_store_display }}</a></p>
+				<p class="mb-2"><strong>WhatsApp:</strong> <a href="{{ whatsapp_store_url }}" target="_blank" rel="noopener noreferrer">{{ whatsapp_store_display }}</a></p>
+				<a class="btn btn-brand-whatsapp btn-sm" href="{{ whatsapp_store_url }}" target="_blank" rel="noopener noreferrer">
+					<i class="bi bi-whatsapp" aria-hidden="true"></i> Message us on WhatsApp
+				</a>
 				<p class="mb-1"><strong>Location:</strong> Kampala, Uganda</p>
 				<p class="mb-0"><strong>Shipping:</strong> Worldwide shipping available</p>
 			</article>
