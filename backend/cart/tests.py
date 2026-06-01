@@ -187,7 +187,7 @@ class OrderTrackingTests(TestCase):
 		self.assertIn('Shipped', customer_mail.body)
 		self.assertIn('https://courier.example/track/1', customer_mail.body)
 		staff_mail = next(m for m in mail.outbox if m.to != ['buyer@example.com'])
-		self.assertIn('wa.me', staff_mail.body)
+		self.assertIn('api.whatsapp.com', staff_mail.body)
 
 	def test_status_progression_sets_timestamps(self):
 		order = Order.objects.create(

@@ -137,7 +137,9 @@ def _notify_staff_email(order, previous_status, label, track_url):
         lines.append('No valid customer phone for WhatsApp link.')
         lines.append('')
 
-    lines.append(f'Store WhatsApp: https://wa.me/{store_whatsapp_number()}')
+    from .whatsapp import whatsapp_url
+
+    lines.append(f'Store WhatsApp: {whatsapp_url(store_whatsapp_number(), "")}')
 
     try:
         send_mail(
