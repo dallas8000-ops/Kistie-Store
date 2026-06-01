@@ -40,7 +40,7 @@ services:
       - key: SITE_URL
         sync: false
       - key: INSTAGRAM_PROFILE_URL
-        value: "https://www.instagram.com/kistiestore/"
+        value: "https://www.instagram.com/kistie_storeug/"
 
 databases:
   - name: kistie-store-db

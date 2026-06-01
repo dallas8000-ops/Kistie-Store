@@ -138,7 +138,7 @@ SITE_URL = os.environ.get('SITE_URL', '').strip()
 # Override on Render/local with your real profile URL if the handle differs.
 INSTAGRAM_PROFILE_URL = os.environ.get(
     'INSTAGRAM_PROFILE_URL',
-    'https://www.instagram.com/kistiestore/',
+    'https://www.instagram.com/kistie_storeug/',
 ).strip()
 SERPAPI_API_KEY = os.environ.get('SERPAPI_API_KEY', '').strip()
 PRICE_SCAN_UGX_RATE = os.environ.get('PRICE_SCAN_UGX_RATE', '3700').strip()
