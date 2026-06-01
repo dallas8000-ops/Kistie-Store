@@ -14,3 +14,16 @@ export async function fetchCategories() {
   if (!res.ok) throw new Error('Failed to fetch categories');
   return res.json();
 }
+
+export async function fetchFitRecommendation(productId, payload) {
+  const res = await fetch(`${API_BASE}/fit-recommend/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, ...payload }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error || 'Failed to fetch fit recommendation');
+  }
+  return res.json();
+}

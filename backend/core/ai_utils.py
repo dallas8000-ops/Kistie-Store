@@ -205,3 +205,215 @@ def recommend_size(bust: float, waist: float, hips: float) -> dict:
         f"EU {best_size} is your closest match. Try one size up if you prefer a relaxed fit."
     )
     return {'size': best_size, 'note': note}
+
+
+def _safe_size_index(size: str) -> int:
+    try:
+        return [token for token, *_ in _EU_SIZE_TABLE].index(size)
+    except ValueError:
+        return -1
+
+
+def _pick_adjacent_available_size(available_sizes: list[str], target_size: str) -> str:
+    if not available_sizes:
+        return target_size
+    if target_size in available_sizes:
+        return target_size
+
+    target_index = _safe_size_index(target_size)
+    if target_index < 0:
+        return available_sizes[0]
+
+    ranked = sorted(
+        available_sizes,
+        key=lambda size: abs(_safe_size_index(size) - target_index) if _safe_size_index(size) >= 0 else 999,
+    )
+    return ranked[0]
+
+
+def _fit_base_size(available_sizes: list[str], bust, waist, hips, usual_size: str) -> str:
+    if bust is not None and waist is not None and hips is not None:
+        return recommend_size(float(bust), float(waist), float(hips))['size']
+    if usual_size:
+        return usual_size
+    if available_sizes:
+        return available_sizes[len(available_sizes) // 2]
+    return '38'
+
+
+def _fit_measurement_bonus(measurement_count: int) -> int:
+    if measurement_count >= 3:
+        return 18
+    if measurement_count == 2:
+        return 10
+    if measurement_count == 1:
+        return 5
+    return 0
+
+
+def _fit_size_bonus(available_sizes: list[str], usual_size: str, recommended_size: str) -> int:
+    bonus = 0
+    if usual_size:
+        bonus += 8
+        if usual_size == recommended_size:
+            bonus += 8
+
+    if available_sizes:
+        bonus += min(15, len(available_sizes) * 3)
+        if recommended_size in available_sizes:
+            bonus += 8
+        if len(available_sizes) <= 2:
+            bonus -= 8
+    else:
+        bonus -= 10
+    return bonus
+
+
+def _fit_context_bonus(fit_preference: str, occasion: str, height) -> int:
+    bonus = 0
+    if fit_preference:
+        bonus += 4
+    if occasion:
+        bonus += 2
+    if height and float(height) >= 170:
+        bonus += 2
+    return bonus
+
+
+def _fit_confidence(
+    available_sizes: list[str],
+    measurement_count: int,
+    usual_size: str,
+    recommended_size: str,
+    fit_preference: str,
+    occasion: str,
+    height,
+) -> int:
+    confidence = 45
+    confidence += _fit_measurement_bonus(measurement_count)
+    confidence += _fit_size_bonus(available_sizes, usual_size, recommended_size)
+    confidence += _fit_context_bonus(fit_preference, occasion, height)
+    return max(10, min(95, confidence))
+
+
+def _fit_bundle_suggestions(product):
+    bundle_suggestions = []
+    category = getattr(product, 'category', None)
+    if category and hasattr(category, 'products'):
+        related = (
+            category.products.filter(stock_quantity__gt=0)
+            .exclude(pk=product.pk)
+            .prefetch_related('images')
+            .order_by('-stock_quantity', '-created_at')[:2]
+        )
+        for related_product in related:
+            bundle_suggestions.append({
+                'id': related_product.id,
+                'slug': related_product.slug,
+                'name': related_product.name,
+                'reason': 'Pairs well as a matching look and can lift basket value.',
+            })
+
+    if not bundle_suggestions:
+        bundle_suggestions.append({
+            'id': product.id,
+            'slug': product.slug,
+            'name': product.name,
+            'reason': 'Use this as the main item and pair it with matching accessories.',
+        })
+    return bundle_suggestions
+
+
+def _fit_explanation(product, available_sizes: list[str], recommended_size: str, fit_note: str, fit_preference: str, occasion: str) -> str:
+    if not getattr(settings, 'FIT_RECOMMENDER_USE_AI', False):
+        return fit_note
+
+    prompt = (
+        "You are a fashion stylist for Kistie Store. Rewrite the following fit guidance into a short, "
+        "friendly shopper message of 2 sentences max. Keep it practical and specific.\n\n"
+        f"Product: {product.name}\n"
+        f"Available sizes: {', '.join(available_sizes) or 'not specified'}\n"
+        f"Recommended size: {recommended_size}\n"
+        f"Fit preference: {fit_preference or 'not specified'}\n"
+        f"Occasion: {occasion or 'not specified'}\n"
+        f"Guidance: {fit_note}\n"
+        "Reply with the shopper message only."
+    )
+    ai_explanation = chat_complete([{'role': 'user', 'content': prompt}], max_tokens=120)
+    return ai_explanation.strip() if ai_explanation else fit_note
+
+
+def recommend_fit(
+    product,
+    *,
+    bust: float | None = None,
+    waist: float | None = None,
+    hips: float | None = None,
+    height: float | None = None,
+    usual_size: str = '',
+    fit_preference: str = '',
+    occasion: str = '',
+) -> dict:
+    """
+    Return a fit score for a specific product.
+
+    The first version is deterministic and explainable, but can optionally use the LLM
+    for a shopper-friendly explanation.
+    """
+    available_sizes = product.size_list() if hasattr(product, 'size_list') else []
+    measurements = [value for value in (bust, waist, hips) if value is not None]
+    measurement_count = len(measurements)
+    base_size = _fit_base_size(available_sizes, bust, waist, hips, usual_size)
+    recommended_size = _pick_adjacent_available_size(available_sizes, base_size)
+    confidence = _fit_confidence(
+        available_sizes,
+        measurement_count,
+        usual_size,
+        recommended_size,
+        fit_preference,
+        occasion,
+        height,
+    )
+    if confidence >= 75:
+        return_risk = 'low'
+    elif confidence >= 50:
+        return_risk = 'medium'
+    else:
+        return_risk = 'high'
+
+    fit_note = (
+        f"{product.name} is most likely to suit EU {recommended_size}. "
+        f"Your fit confidence is {confidence}%, so the return risk is {return_risk}."
+    )
+    if fit_preference:
+        fit_note += f" Preference noted: {fit_preference}."
+    if occasion:
+        fit_note += f" Best for {occasion} wear."
+
+    bundle_suggestions = _fit_bundle_suggestions(product)
+    explanation = _fit_explanation(
+        product,
+        available_sizes,
+        recommended_size,
+        fit_note,
+        fit_preference,
+        occasion,
+    )
+
+    fallback_sizes = [size for size in available_sizes if size != recommended_size]
+    if fallback_sizes:
+        fallback_size = _pick_adjacent_available_size(fallback_sizes, recommended_size)
+    else:
+        fallback_size = recommended_size
+
+    return {
+        'product_id': product.id,
+        'product_name': product.name,
+        'recommended_size': recommended_size,
+        'fallback_size': fallback_size,
+        'fit_confidence': confidence,
+        'return_risk': return_risk,
+        'why': explanation,
+        'available_sizes': available_sizes,
+        'bundle_suggestions': bundle_suggestions,
+    }

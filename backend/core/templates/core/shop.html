@@ -118,6 +118,10 @@
               </div>
               <button type="button" id="qvSizeBtn" class="btn btn-sm btn-brand-outline">Get my size</button>
               <p id="qvSizeResult" class="small mt-2 mb-0 text-success fw-semibold d-none"></p>
+              <div id="qvFitResult" class="small mt-2 d-none">
+                <div class="fw-semibold" id="qvFitHeadline"></div>
+                <div class="text-muted" id="qvFitDetail"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -156,13 +160,14 @@
             return;
           }
 
-          const name = btn.getAttribute('data-qv-name') || '';
-          const desc = btn.getAttribute('data-qv-desc') || '';
-          const img = btn.getAttribute('data-qv-img') || '';
-          const price = btn.getAttribute('data-qv-price') || '';
-          const cur = btn.getAttribute('data-qv-currency') || '';
-          const stock = parseInt(btn.getAttribute('data-qv-stock') || '0', 10);
-          const sizes = (btn.getAttribute('data-qv-sizes') || '').trim();
+          const name = btn.dataset.qvName || '';
+          const desc = btn.dataset.qvDesc || '';
+          const img = btn.dataset.qvImg || '';
+          const price = btn.dataset.qvPrice || '';
+          const cur = btn.dataset.qvCurrency || '';
+          const stock = Number.parseInt(btn.dataset.qvStock || '0', 10);
+          const sizes = (btn.dataset.qvSizes || '').trim();
+          const productId = Number.parseInt(btn.dataset.qvProductId || '0', 10);
 
           const titleEl = document.getElementById('productQuickViewTitle');
           const imgEl = modalEl.querySelector('.quick-view-modal-img');
@@ -176,6 +181,8 @@
             console.error('Quick view modal elements not found');
             return;
           }
+
+          modalEl.dataset.qvProductId = productId > 0 ? String(productId) : '';
 
           titleEl.textContent = name || 'Product';
           imgEl.src = img;
@@ -262,9 +269,9 @@
       });
     }
 
-    window.addEventListener('popstate', function () {
+    globalThis.addEventListener('popstate', function () {
       if (!form) return;
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(globalThis.location.search);
       form.querySelectorAll('input, select').forEach(function (el) {
         if (!el.name) return;
         el.value = params.get(el.name) || '';
@@ -273,13 +280,46 @@
     });
 
     /* ── Size Recommendation ── */
+    async function loadFitRisk(productId, bust, waist, hips, fitResultWrap, fitHeadline, fitDetail) {
+      if (productId <= 0) return;
+      try {
+        const fitRes = await fetch('/api/fit-recommend/', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ product_id: productId, bust, waist, hips, fit_preference: 'regular', occasion: 'casual' }),
+        });
+        const fitData = await fitRes.json();
+        if (!fitRes.ok || !fitData.recommended_size) return;
+        if (fitHeadline) {
+          fitHeadline.textContent =
+            'Fit confidence: ' + fitData.fit_confidence + '% | Return risk: ' + String(fitData.return_risk || '').toUpperCase();
+        }
+        if (fitDetail) {
+          fitDetail.textContent =
+            'Fallback size: EU ' + fitData.fallback_size + '. ' + (fitData.why || '');
+        }
+        if (fitResultWrap) fitResultWrap.classList.remove('d-none');
+      } catch (fitErr) {
+        console.error('fit recommend failed', fitErr);
+      }
+    }
+
     const sizeBtn = document.getElementById('qvSizeBtn');
     if (sizeBtn) {
       sizeBtn.addEventListener('click', async function () {
-        const bust  = parseFloat(document.getElementById('qvBust').value);
-        const waist = parseFloat(document.getElementById('qvWaist').value);
-        const hips  = parseFloat(document.getElementById('qvHips').value);
+        const bust  = Number.parseFloat(document.getElementById('qvBust').value);
+        const waist = Number.parseFloat(document.getElementById('qvWaist').value);
+        const hips  = Number.parseFloat(document.getElementById('qvHips').value);
+        const productId = Number.parseInt((document.getElementById('productQuickViewModal')?.dataset?.qvProductId) || '0', 10);
         const resultEl = document.getElementById('qvSizeResult');
+        const fitResultWrap = document.getElementById('qvFitResult');
+        const fitHeadline = document.getElementById('qvFitHeadline');
+        const fitDetail = document.getElementById('qvFitDetail');
+
+        if (fitResultWrap) fitResultWrap.classList.add('d-none');
+        if (fitHeadline) fitHeadline.textContent = '';
+        if (fitDetail) fitDetail.textContent = '';
+
         if (!bust || !waist || !hips) {
           resultEl.textContent = 'Please enter bust, waist and hips (cm).';
           resultEl.className = 'small mt-2 mb-0 text-danger fw-semibold';
@@ -302,9 +342,11 @@
             resultEl.textContent = data.error || 'Could not determine size.';
             resultEl.className = 'small mt-2 mb-0 text-danger fw-semibold';
           }
+          await loadFitRisk(productId, bust, waist, hips, fitResultWrap, fitHeadline, fitDetail);
         } catch (e) {
           resultEl.textContent = 'Network error. Please try again.';
           resultEl.className = 'small mt-2 mb-0 text-danger fw-semibold';
+          console.error('size recommend failed', e);
         }
         resultEl.classList.remove('d-none');
         sizeBtn.disabled = false;
@@ -319,6 +361,13 @@
         ['qvBust','qvWaist','qvHips'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const r = document.getElementById('qvSizeResult');
         if (r) { r.textContent = ''; r.classList.add('d-none'); }
+        const fw = document.getElementById('qvFitResult');
+        const fh = document.getElementById('qvFitHeadline');
+        const fd = document.getElementById('qvFitDetail');
+        if (fw) fw.classList.add('d-none');
+        if (fh) fh.textContent = '';
+        if (fd) fd.textContent = '';
+        qvModal.dataset.qvProductId = '';
       });
     }
   })();

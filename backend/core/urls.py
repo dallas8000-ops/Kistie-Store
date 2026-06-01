@@ -41,6 +41,7 @@ urlpatterns = [
     path('order/pesapal/callback/', views.pesapal_callback, name='pesapal_callback'),
     path('api/chat/', views.api_chat, name='api_chat'),
     path('api/size-recommend/', views.api_size_recommend, name='api_size_recommend'),
+    path('api/fit-recommend/', views.api_fit_recommend, name='api_fit_recommend'),
     path('api/ai/describe/', views.api_ai_describe, name='api_ai_describe'),
     path('api/inventory/', include('inventory.urls')),
     path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),

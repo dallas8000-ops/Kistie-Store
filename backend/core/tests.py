@@ -9,6 +9,7 @@ suite ends with OK.
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from decimal import Decimal
+import json
 from django.test import TestCase
 from django.urls import reverse
 
@@ -162,6 +163,61 @@ class ProductDetailPageTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, url)
+
+
+class FitRecommendationApiTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(name='Dresses', description='')
+        cls.product = Product.objects.create(
+            name='Fit Test Dress',
+            description='A test dress for AI fit recommendations.',
+            price_usd=Decimal('110.00'),
+            price_ugx=Decimal('0'),
+            category=cls.category,
+            stock_quantity=7,
+            sizes='36,38,40,42',
+        )
+        Product.objects.create(
+            name='Matching Wrap Top',
+            description='Bundle candidate.',
+            price_usd=Decimal('35.00'),
+            price_ugx=Decimal('0'),
+            category=cls.category,
+            stock_quantity=4,
+            sizes='38,40',
+        )
+
+    def test_fit_recommend_returns_risk_and_size(self):
+        response = self.client.post(
+            reverse('api_fit_recommend'),
+            data=json.dumps({
+                'product_id': self.product.id,
+                'bust': 90,
+                'waist': 72,
+                'hips': 98,
+                'usual_size': '38',
+                'fit_preference': 'regular',
+                'occasion': 'office',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['product_id'], self.product.id)
+        self.assertIn(payload['return_risk'], ('low', 'medium', 'high'))
+        self.assertTrue(payload['recommended_size'])
+        self.assertIn('why', payload)
+        self.assertGreaterEqual(len(payload['bundle_suggestions']), 1)
+
+    def test_fit_recommend_requires_context(self):
+        response = self.client.post(
+            reverse('api_fit_recommend'),
+            data=json.dumps({'product_id': self.product.id}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
 
 
 class StaffDashboardPermissionTests(TestCase):

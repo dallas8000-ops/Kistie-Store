@@ -7,8 +7,13 @@ Usage (from repo root or anywhere):
 
 Optional env:
   SKIP_BROWSER=1 — do not launch default browser tabs
+    NO_DESKTOP_WINDOWS=1 — start backend/frontend without opening visible PowerShell windows
 #>
 $ErrorActionPreference = 'Stop'
+
+param(
+        [switch]$NoDesktopWindows
+)
 
 function Find-VenvPython {
     $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -22,10 +27,12 @@ function Find-VenvPython {
 $backend = (Resolve-Path (Join-Path (Join-Path $PSScriptRoot '..') 'backend')).Path
 $frontend = (Resolve-Path (Join-Path (Join-Path $PSScriptRoot '..') 'frontend')).Path
 $python = Find-VenvPython
+$hideWindows = $NoDesktopWindows -or [bool]$env:NO_DESKTOP_WINDOWS
+$windowStyle = if ($hideWindows) { 'Hidden' } else { 'Normal' }
 
 Write-Host '[kistie] Starting Django on http://127.0.0.1:8000 ...' -ForegroundColor Cyan
 Start-Process -FilePath $python -ArgumentList @('manage.py', 'runserver', '127.0.0.1:8000') `
-    -WorkingDirectory $backend -WindowStyle Normal
+    -WorkingDirectory $backend -WindowStyle $windowStyle
 
 $ok = $false
 foreach ($i in 1..45) {
@@ -43,7 +50,7 @@ if (-not $ok) {
 }
 
 Write-Host '[kistie] Django is up. Starting Vite on http://127.0.0.1:5173 ...' -ForegroundColor Cyan
-Start-Process -FilePath 'npm.cmd' -ArgumentList @('run', 'dev') -WorkingDirectory $frontend -WindowStyle Normal
+Start-Process -FilePath 'npm.cmd' -ArgumentList @('run', 'dev') -WorkingDirectory $frontend -WindowStyle $windowStyle
 
 if (-not $env:SKIP_BROWSER) {
     Start-Sleep -Seconds 2
@@ -51,4 +58,9 @@ if (-not $env:SKIP_BROWSER) {
     Start-Process 'http://127.0.0.1:5173/'
 }
 
-Write-Host '[kistie] Both servers launching in separate windows. Close those terminals to stop them.' -ForegroundColor Green
+if ($hideWindows) {
+    Write-Host '[kistie] Servers started without desktop windows (NO_DESKTOP_WINDOWS mode).' -ForegroundColor Green
+    Write-Host '[kistie] Use Task Manager or stop scripts to end background processes.' -ForegroundColor DarkGray
+} else {
+    Write-Host '[kistie] Both servers launching in separate windows. Close those terminals to stop them.' -ForegroundColor Green
+}

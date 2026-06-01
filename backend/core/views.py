@@ -40,6 +40,7 @@ SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 DJANGO_IMAGE_SUFFIX_RE = re.compile(r'^(?P<stem>.+)_[A-Za-z0-9]{7}$')
 SUPPORTED_CURRENCIES = ('USD', 'EUR', 'KES', 'UGX')
 PAYMENT_METHODS = ('mtn', 'airtel', 'worldremit', 'pesapal')
+INVALID_JSON_ERROR = 'Invalid JSON'
 FALLBACK_RATES = {
     'USD': Decimal('1'),
     'EUR': Decimal('0.92'),
@@ -88,8 +89,24 @@ def _login_register_failure(request):
     return False
 
 
-def _workspace_images_dir():
-    return Path(settings.BASE_DIR).parent / 'images'
+def _workspace_image_dirs():
+    """Return likely catalog image directories across workspace layouts."""
+    base_dir = Path(settings.BASE_DIR).resolve()
+    candidates = [
+        base_dir.parent / 'images',
+        base_dir.parent.parent / 'images',
+        base_dir.parent.parent / 'kistie-store' / 'images',
+    ]
+
+    dirs = []
+    seen = set()
+    for path in candidates:
+        resolved = path.resolve()
+        if resolved in seen or not resolved.exists() or not resolved.is_dir():
+            continue
+        seen.add(resolved)
+        dirs.append(resolved)
+    return dirs
 
 
 def _ensure_session_key(request):
@@ -198,16 +215,46 @@ def _render_checkout_success(request, order, checkout_prefs, grand_total, instru
 
 
 def _catalog_image_files():
-    image_dir = _workspace_images_dir()
-    if not image_dir.exists():
+    files = []
+    for image_dir in _workspace_image_dirs():
+        files.extend(
+            f for f in image_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS
+        )
+
+    if not files:
         return []
 
-    files = [
-        f for f in image_dir.iterdir()
-        if f.is_file() and f.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS
-    ]
+    deduped = {}
+    for file_path in files:
+        deduped.setdefault(file_path.name.lower(), file_path)
+
+    files = list(deduped.values())
     files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return files
+
+
+def _catalog_image_name_lookup():
+    lookup = {}
+    for file_path in _catalog_image_files():
+        stem = file_path.stem
+        keys = {_normalize_key(stem)}
+        match = DJANGO_IMAGE_SUFFIX_RE.match(stem)
+        if match:
+            keys.add(_normalize_key(match.group('stem')))
+        for key in keys:
+            if key and key not in lookup:
+                lookup[key] = file_path.name
+    return lookup
+
+
+def _catalog_image_url_for_product_name(product_name, image_lookup=None):
+    normalized_name = _normalize_key(product_name or '')
+    if not normalized_name:
+        return ''
+    lookup = image_lookup or _catalog_image_name_lookup()
+    image_name = lookup.get(normalized_name, '')
+    return reverse('catalog_image', args=[image_name]) if image_name else ''
 
 
 def _product_image_url(image_field):
@@ -890,6 +937,39 @@ def admin_audit_log(request):
     })
 
 
+def _shop_filter_category(products, category_raw):
+    if not category_raw:
+        return products
+    try:
+        cid = int(category_raw)
+    except (TypeError, ValueError):
+        return products
+    return products.filter(category_id=cid)
+
+
+def _shop_filter_price(products, price_min, price_max):
+    parsed_min = _parse_shop_price_filter(price_min)
+    parsed_max = _parse_shop_price_filter(price_max)
+    if parsed_min is not None:
+        products = products.filter(price_usd__gte=parsed_min)
+    if parsed_max is not None:
+        products = products.filter(price_usd__lte=parsed_max)
+    return products, parsed_min, parsed_max
+
+
+def _shop_build_filter_context(category_raw, price_min, price_max, size_q, search_q, search_parsed):
+    from core.shop_search import search_hint_label
+
+    return {
+        'filter_category': category_raw or '',
+        'filter_price_min': (price_min or '').strip(),
+        'filter_price_max': (price_max or '').strip(),
+        'filter_size': size_q,
+        'filter_q': search_q,
+        'search_hint': search_hint_label(search_parsed) if search_q else '',
+    }
+
+
 def _shop_filtered_products_queryset(request):
     category_raw = request.GET.get('category')
     price_min = request.GET.get('price_min')
@@ -914,19 +994,8 @@ def _shop_filtered_products_queryset(request):
         )
     )
 
-    if category_raw:
-        try:
-            cid = int(category_raw)
-            products = products.filter(category_id=cid)
-        except (TypeError, ValueError):
-            pass
-
-    parsed_min = _parse_shop_price_filter(price_min)
-    if parsed_min is not None:
-        products = products.filter(price_usd__gte=parsed_min)
-    parsed_max = _parse_shop_price_filter(price_max)
-    if parsed_max is not None:
-        products = products.filter(price_usd__lte=parsed_max)
+    products = _shop_filter_category(products, category_raw)
+    products, _, _ = _shop_filter_price(products, price_min, price_max)
 
     if size_q:
         products = products.filter(sizes__icontains=size_q)
@@ -938,24 +1007,23 @@ def _shop_filtered_products_queryset(request):
         products, search_parsed = smart_shop_search(products, search_q)
         if search_parsed.get('eu_size') and not size_q:
             size_q = search_parsed['eu_size']
-        if search_parsed.get('max_price_usd') is not None and not parsed_max:
-            parsed_max = search_parsed['max_price_usd']
 
     products = products.order_by('-created_at')
 
-    filter_ctx = {
-        'filter_category': category_raw or '',
-        'filter_price_min': (price_min or '').strip(),
-        'filter_price_max': (price_max or '').strip(),
-        'filter_size': size_q,
-        'filter_q': search_q,
-        'search_hint': search_hint_label(search_parsed) if search_q else '',
-    }
+    filter_ctx = _shop_build_filter_context(
+        category_raw,
+        price_min,
+        price_max,
+        size_q,
+        search_q,
+        search_parsed,
+    )
     return products, filter_ctx
 
 
 def _shop_product_rows(products, checkout):
     rows = []
+    image_lookup = _catalog_image_name_lookup()
     for product in products:
         images = list(product.images.all())
         description = (product.description or '').strip()
@@ -965,8 +1033,7 @@ def _shop_product_rows(products, checkout):
         base_price = _safe_decimal(product.price, Decimal('0'))
         converted_price = base_price * checkout['rate']
 
-        primary_url = _product_image_url(images[0].image) if images else ''
-        detail_url = _product_image_url(images[1].image) if len(images) > 1 else primary_url
+        primary_url, detail_url = _shop_row_image_urls(product, images, image_lookup)
 
         review_label = ''
         review_count = getattr(product, 'review_count', None)
@@ -983,9 +1050,19 @@ def _shop_product_rows(products, checkout):
             'description': description or _catalog_fallback_description(product),
             'review_label': review_label,
             'category_name': product.category.name if product.category_id else '',
-            'has_image': bool(images),
+            'has_image': bool(primary_url),
         })
     return rows
+
+
+def _shop_row_image_urls(product, images, image_lookup):
+    if images:
+        primary_url = _product_image_url(images[0].image)
+        detail_url = _product_image_url(images[1].image) if len(images) > 1 else primary_url
+        return primary_url, detail_url
+
+    fallback_url = _catalog_image_url_for_product_name(product.name, image_lookup)
+    return fallback_url, fallback_url
 
 
 def _product_description_display(product):
@@ -1020,6 +1097,16 @@ def _build_whatsapp_product_url(request, product, size=''):
     return whatsapp_url(store_whatsapp_number(), text)
 
 
+def _extend_related_rows(rows, picked_ids, candidates, limit):
+    for candidate in candidates:
+        if len(rows) >= limit:
+            break
+        if candidate.pk in picked_ids:
+            continue
+        picked_ids.append(candidate.pk)
+        rows.append(candidate)
+
+
 def _related_products_for_pdp(product, limit=4):
     """Same category first; fill with color/name similarity."""
     base_qs = (
@@ -1037,18 +1124,16 @@ def _related_products_for_pdp(product, limit=4):
     rows = []
 
     if product.category_id:
-        for p in base_qs.filter(category_id=product.category_id).order_by('-created_at')[:limit]:
-            picked_ids.append(p.pk)
-            rows.append(p)
+        same_category = base_qs.filter(category_id=product.category_id).order_by('-created_at')[:limit]
+        _extend_related_rows(rows, picked_ids, same_category, limit)
 
     if len(rows) < limit and product.color:
-        for p in (
+        by_color = (
             base_qs.filter(color__icontains=product.color)
             .exclude(pk__in=picked_ids)
             .order_by('-created_at')[: limit - len(rows)]
-        ):
-            picked_ids.append(p.pk)
-            rows.append(p)
+        )
+        _extend_related_rows(rows, picked_ids, by_color, limit)
 
     if len(rows) < limit:
         name_tokens = [
@@ -1060,19 +1145,18 @@ def _related_products_for_pdp(product, limit=4):
         for token in name_tokens:
             similarity |= Q(name__icontains=token) | Q(description__icontains=token)
         if similarity:
-            for p in (
+            by_similarity = (
                 base_qs.filter(similarity)
                 .exclude(pk__in=picked_ids)
                 .order_by('-created_at')[: limit - len(rows)]
-            ):
-                picked_ids.append(p.pk)
-                rows.append(p)
+            )
+            _extend_related_rows(rows, picked_ids, by_similarity, limit)
 
     if len(rows) < limit:
-        for p in (
+        fallback = (
             base_qs.exclude(pk__in=picked_ids).order_by('-created_at')[: limit - len(rows)]
-        ):
-            rows.append(p)
+        )
+        _extend_related_rows(rows, picked_ids, fallback, limit)
 
     return rows
 
@@ -1185,11 +1269,11 @@ def catalog_image(_request, image_name):
     requested_names = _candidate_image_names(image_name)
 
     # Try workspace image folder first (used by legacy catalog seed flow).
-    workspace_dir = _workspace_images_dir().resolve()
-    for requested_name in requested_names:
-        workspace_candidate = (workspace_dir / requested_name).resolve()
-        if workspace_dir in workspace_candidate.parents and workspace_candidate.exists() and workspace_candidate.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
-            return FileResponse(open(workspace_candidate, 'rb'))
+    for workspace_dir in _workspace_image_dirs():
+        for requested_name in requested_names:
+            workspace_candidate = (workspace_dir / requested_name).resolve()
+            if workspace_dir in workspace_candidate.parents and workspace_candidate.exists() and workspace_candidate.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS:
+                return FileResponse(open(workspace_candidate, 'rb'))
 
     # Fallback to media folder where ProductImage files are stored on most deployments.
     media_root = Path(settings.MEDIA_ROOT).resolve()
@@ -1446,6 +1530,40 @@ def _create_order_items_and_reduce_stock(order, cart_items, checkout_prefs, prod
         product.save(update_fields=['stock_quantity', 'updated_at'])
 
 
+def _try_pesapal_redirect(request, order):
+    if order.payment_method != 'pesapal':
+        return None
+
+    import urllib.request as _url_req, json as _pay_json
+    try:
+        payload = _pay_json.dumps({
+            'order_ref': order.order_ref,
+            'amount': str(order.total_amount),
+            'currency': order.currency,
+            'customer': {
+                'name': order.customer_name,
+                'phone': order.phone,
+            },
+        }).encode()
+        _req = _url_req.Request(
+            settings.PESAPAL_INITIATE_URL,
+            data=payload,
+            headers={'Content-Type': 'application/json'},
+        )
+        with _url_req.urlopen(_req, timeout=10) as _resp:
+            _result = _pay_json.loads(_resp.read())
+        if _result.get('redirect_url'):
+            return redirect(_result['redirect_url'])
+    except Exception as _e:
+        logger.warning('Pesapal redirect failed: %s', _e)
+        messages.warning(
+            request,
+            f'Pesapal is temporarily unavailable ({_e}). '
+            'Your order is saved — please contact us to complete payment.',
+        )
+    return None
+
+
 def _checkout_post(request, cart, cart_items, checkout_prefs, grand_total, context):
     form_data = {
         'name': (request.POST.get('name') or '').strip(),
@@ -1489,35 +1607,9 @@ def _checkout_post(request, cart, cart_items, checkout_prefs, grand_total, conte
         # Clear the cart after a successful order capture.
         cart.items.all().delete()
 
-    # Pesapal: hand off to the Node payments service and redirect the user.
-    if checkout_prefs['payment_method'] == 'pesapal':
-        import urllib.request as _url_req, json as _pay_json
-        try:
-            payload = _pay_json.dumps({
-                'order_ref': order.order_ref,
-                'amount': str(order.total_amount),
-                'currency': order.currency,
-                'customer': {
-                    'name': order.customer_name,
-                    'phone': order.phone,
-                },
-            }).encode()
-            _req = _url_req.Request(
-                settings.PESAPAL_INITIATE_URL,
-                data=payload,
-                headers={'Content-Type': 'application/json'},
-            )
-            with _url_req.urlopen(_req, timeout=10) as _resp:
-                _result = _pay_json.loads(_resp.read())
-            if _result.get('redirect_url'):
-                return redirect(_result['redirect_url'])
-        except Exception as _e:
-            logger.warning('Pesapal redirect failed: %s', _e)
-            messages.warning(
-                request,
-                f'Pesapal is temporarily unavailable ({_e}). '
-                'Your order is saved — please contact us to complete payment.',
-            )
+    pesapal_response = _try_pesapal_redirect(request, order)
+    if pesapal_response is not None:
+        return pesapal_response
 
     return _render_checkout_success(
         request,
@@ -1654,12 +1746,14 @@ def pesapal_callback(request):
 from django.views.decorators.csrf import csrf_exempt  # noqa: E402 (already imported above via require_POST)
 
 
-def _extract_measurements_cm(text):
-    """Extract bust/waist/hips values in cm from free text."""
-    raw = (text or '').lower()
-    if not raw:
-        return None
+def _parse_json_request_body(request):
+    try:
+        return json.loads(request.body), None
+    except json.JSONDecodeError:
+        return None, JsonResponse({'error': INVALID_JSON_ERROR}, status=400)
 
+
+def _extract_named_measurements(raw):
     patterns = {
         'bust': [r'\bbust\b\s*[:=,-]?\s*(\d{2,3}(?:\.\d+)?)', r'\bchest\b\s*[:=,-]?\s*(\d{2,3}(?:\.\d+)?)'],
         'waist': [r'\bwaist\b\s*[:=,-]?\s*(\d{2,3}(?:\.\d+)?)'],
@@ -1669,30 +1763,44 @@ def _extract_measurements_cm(text):
     found = {}
     for key, key_patterns in patterns.items():
         for pat in key_patterns:
-            m = re.search(pat, raw)
-            if m:
-                try:
-                    found[key] = float(m.group(1))
-                    break
-                except (TypeError, ValueError):
-                    continue
+            match = re.search(pat, raw)
+            if not match:
+                continue
+            try:
+                found[key] = float(match.group(1))
+                break
+            except (TypeError, ValueError):
+                continue
+    return found
+
+
+def _extract_compact_measurements(raw):
+    nums = re.findall(r'(\d{2,3}(?:\.\d+)?)', raw)
+    if len(nums) < 3:
+        return None
+    try:
+        return {
+            'bust': float(nums[0]),
+            'waist': float(nums[1]),
+            'hips': float(nums[2]),
+        }
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_measurements_cm(text):
+    """Extract bust/waist/hips values in cm from free text."""
+    raw = (text or '').lower()
+    if not raw:
+        return None
+
+    found = _extract_named_measurements(raw)
 
     if all(k in found for k in ('bust', 'waist', 'hips')):
         return found
 
     # Fallback: allow compact numeric format like "90 70 98" or "90/70/98".
-    nums = re.findall(r'(\d{2,3}(?:\.\d+)?)', raw)
-    if len(nums) >= 3:
-        try:
-            return {
-                'bust': float(nums[0]),
-                'waist': float(nums[1]),
-                'hips': float(nums[2]),
-            }
-        except (TypeError, ValueError):
-            return None
-
-    return None
+    return _extract_compact_measurements(raw)
 
 
 def _quick_chat_fallback(user_message):
@@ -1722,7 +1830,7 @@ def _quick_chat_fallback(user_message):
     if any(token in msg for token in ('payment', 'pay', 'mtn', 'airtel', 'worldremit', 'pesapal')):
         return 'We accept MTN Mobile Money, Airtel Money, WorldRemit, and Pesapal.'
 
-    if any(token in msg for token in ('delivery', 'deliver', 'shipping', 'ship', 'dispatch', 'pickup')):
+    if any(token in msg for token in ('delivery', 'deliver', 'shipping', 'ship', 'dispatch', 'pickup', 'livery', 'elivery', 'transport', 'dropoff', 'cost')):
         return (
             'Delivery is arranged after checkout confirmation. '
             'For local Kampala/nearby orders, we can use Boda (local motorcycle delivery). '
@@ -1738,56 +1846,49 @@ def _quick_chat_fallback(user_message):
     if any(token in msg for token in ('size', 'saizi', 'measure', 'measurement', 'bust', 'waist', 'hips', 'cm')):
         return 'Please share your bust, waist, and hips in cm, for example: bust 90, waist 70, hips 98.'
 
+    if any(token in msg for token in ('hello', 'hi', 'hey', 'help', 'start', 'hola', 'gyebale')):
+        return (
+            'I can help with delivery, payment methods, sizes, and prices. '
+            'Try: "delivery cost", "EU size 38", or "Do you accept MTN?"'
+        )
+
     return ''
 
 
-@csrf_exempt
-@require_POST
-def api_chat(request):
-    """
-    POST /api/chat/
-    Body: {"message": "...", "history": [{"role": "user"|"assistant", "content": "..."}]}
-    Returns: {"reply": "..."}
-    """
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
-    user_message = (body.get('message') or '').strip()
-    if not user_message:
-        return JsonResponse({'error': 'message is required'}, status=400)
-
-    # Deterministic size-assistance path: when measurements are present, return
-    # an immediate size recommendation from the EU mapping table.
-    measurement_intent = any(
-        token in user_message.lower()
+def _is_measurement_intent(message):
+    return any(
+        token in message.lower()
         for token in ('size', 'saizi', 'bust', 'waist', 'hips', 'measure', 'measurement', 'cm')
     )
-    extracted = _extract_measurements_cm(user_message)
-    if measurement_intent and extracted:
-        bust = extracted['bust']
-        waist = extracted['waist']
-        hips = extracted['hips']
-        if not (50 <= bust <= 200 and 40 <= waist <= 180 and 60 <= hips <= 220):
-            return JsonResponse({
-                'reply': 'Please send realistic measurements in centimeters, for example: bust 90, waist 70, hips 98.'
-            })
 
-        from core.ai_utils import recommend_size
-        rec = recommend_size(bust, waist, hips)
+
+def _measurement_chat_reply(user_message):
+    if not _is_measurement_intent(user_message):
+        return None
+
+    extracted = _extract_measurements_cm(user_message)
+    if not extracted:
+        return None
+
+    bust = extracted['bust']
+    waist = extracted['waist']
+    hips = extracted['hips']
+    if not (50 <= bust <= 200 and 40 <= waist <= 180 and 60 <= hips <= 220):
         return JsonResponse({
-            'reply': (
-                f"Recommended EU size: {rec['size']}. {rec['note']} "
-                'If you are between sizes, choose one size up for a relaxed fit.'
-            )
+            'reply': 'Please send realistic measurements in centimeters, for example: bust 90, waist 70, hips 98.'
         })
 
-    history = body.get('history') or []
-    if not isinstance(history, list):
-        history = []
+    from core.ai_utils import recommend_size
+    rec = recommend_size(bust, waist, hips)
+    return JsonResponse({
+        'reply': (
+            f"Recommended EU size: {rec['size']}. {rec['note']} "
+            'If you are between sizes, choose one size up for a relaxed fit.'
+        )
+    })
 
-    # Build product catalog context (limit to 60 products to stay within token budget)
+
+def _build_chat_messages(history, user_message):
     catalog_lines = []
     for p in Product.objects.select_related('category').filter(in_stock=True).order_by('name')[:60]:
         sizes = p.sizes or 'various sizes'
@@ -1808,13 +1909,40 @@ def api_chat(request):
     )
 
     messages_payload = [{'role': 'system', 'content': system_prompt}]
-    # Append last 6 turns of history to stay within token limits
     for turn in history[-6:]:
         role = turn.get('role', 'user')
         content = (turn.get('content') or '').strip()
         if role in ('user', 'assistant') and content:
             messages_payload.append({'role': role, 'content': content})
     messages_payload.append({'role': 'user', 'content': user_message})
+    return messages_payload
+
+
+@csrf_exempt
+@require_POST
+def api_chat(request):
+    """
+    POST /api/chat/
+    Body: {"message": "...", "history": [{"role": "user"|"assistant", "content": "..."}]}
+    Returns: {"reply": "..."}
+    """
+    body, parse_error = _parse_json_request_body(request)
+    if parse_error is not None:
+        return parse_error
+
+    user_message = (body.get('message') or '').strip()
+    if not user_message:
+        return JsonResponse({'error': 'message is required'}, status=400)
+
+    measurement_reply = _measurement_chat_reply(user_message)
+    if measurement_reply is not None:
+        return measurement_reply
+
+    history = body.get('history') or []
+    if not isinstance(history, list):
+        history = []
+
+    messages_payload = _build_chat_messages(history, user_message)
 
     quick_reply = _quick_chat_fallback(user_message)
     if quick_reply:
@@ -1824,8 +1952,16 @@ def api_chat(request):
     reply = chat_complete(messages_payload, max_tokens=300)
 
     if reply is None:
+        fallback_reply = _quick_chat_fallback(user_message)
+        if fallback_reply:
+            return JsonResponse({'reply': fallback_reply})
         return JsonResponse(
-            {'reply': 'Sorry, the AI assistant is temporarily unavailable. Please contact us on WhatsApp.'},
+            {
+                'reply': (
+                    'I can still help with delivery, payment methods, sizes, and prices. '
+                    'Try asking: "delivery cost", "size 38", or "payment methods".'
+                )
+            },
         )
     return JsonResponse({'reply': reply})
 
@@ -1839,10 +1975,9 @@ def api_ai_describe(request):
     Returns: {"description_en": "...", "description_lg": "..."}
     Optionally PATCHes the product's description field when product_id is supplied.
     """
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    body, parse_error = _parse_json_request_body(request)
+    if parse_error is not None:
+        return parse_error
 
     name = (body.get('name') or '').strip()
     category = (body.get('category') or '').strip()
@@ -1876,10 +2011,9 @@ def api_size_recommend(request):
     Body: {"bust": 90, "waist": 70, "hips": 95}  (all in cm)
     Returns: {"size": "38", "note": "..."}
     """
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    body, parse_error = _parse_json_request_body(request)
+    if parse_error is not None:
+        return parse_error
 
     try:
         bust = float(body.get('bust', 0))
@@ -1893,3 +2027,58 @@ def api_size_recommend(request):
 
     from core.ai_utils import recommend_size
     return JsonResponse(recommend_size(bust, waist, hips))
+
+
+@csrf_exempt
+@require_POST
+def api_fit_recommend(request):
+    """
+    POST /api/fit-recommend/
+    Body: {"product_id": 1, "bust": 90, "waist": 70, "hips": 95, "height": 168, "usual_size": "38"}
+    Returns fit guidance, risk label, and bundle suggestions for one product.
+    """
+    body, parse_error = _parse_json_request_body(request)
+    if parse_error is not None:
+        return parse_error
+
+    product_id = body.get('product_id')
+    if not product_id:
+        return JsonResponse({'error': 'product_id is required'}, status=400)
+
+    try:
+        product = Product.objects.select_related('category').prefetch_related('category__products').get(pk=int(product_id))
+    except (TypeError, ValueError, Product.DoesNotExist):
+        return JsonResponse({'error': 'Product not found'}, status=404)
+
+    def _maybe_float(value):
+        if value in (None, ''):
+            return None
+        return float(value)
+
+    bust = _maybe_float(body.get('bust'))
+    waist = _maybe_float(body.get('waist'))
+    hips = _maybe_float(body.get('hips'))
+    height = _maybe_float(body.get('height'))
+    usual_size = str(body.get('usual_size') or '').strip()
+    fit_preference = str(body.get('fit_preference') or '').strip()
+    occasion = str(body.get('occasion') or '').strip()
+
+    if not any(value is not None for value in (bust, waist, hips, height)) and not usual_size:
+        return JsonResponse(
+            {'error': 'Provide at least one measurement, height, or usual_size'},
+            status=400,
+        )
+
+    from core.ai_utils import recommend_fit
+    return JsonResponse(
+        recommend_fit(
+            product,
+            bust=bust,
+            waist=waist,
+            hips=hips,
+            height=height,
+            usual_size=usual_size,
+            fit_preference=fit_preference,
+            occasion=occasion,
+        )
+    )

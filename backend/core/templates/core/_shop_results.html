@@ -8,7 +8,7 @@
       {% if row.has_image %}
       <div class="shop-product-media">
         <a href="{% url 'product_detail' product.slug %}" class="d-block text-decoration-none">
-          <img src="{{ row.detail_url }}" alt="{{ product.name }}" loading="lazy" class="shop-product-image">
+          <img src="{{ row.image_url }}" alt="{{ product.name }}" loading="lazy" class="shop-product-image">
         </a>
       </div>
       {% else %}
@@ -33,6 +33,7 @@
             data-qv-currency="{{ currency|escapejs }}"
             data-qv-stock="{{ product.stock_quantity }}"
             data-qv-sizes="{{ product.sizes|default:''|escapejs }}"
+            data-qv-product-id="{{ product.id }}"
             aria-label="Quick view {{ product.name }}">
             <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i> Quick view<br><small style="font-weight:normal;opacity:0.75;font-size:0.65rem;">Laba Mangu</small>
           </button>
