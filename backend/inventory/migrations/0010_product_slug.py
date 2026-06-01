@@ -3,23 +3,37 @@ from django.utils.text import slugify
 
 
 def populate_product_slugs(apps, schema_editor):
+    """Write slugs via SQL — historical Product in database_operations has no slug field yet."""
     Product = apps.get_model('inventory', 'Product')
+    connection = schema_editor.connection
+
     used = set()
-    for product in Product.objects.order_by('id'):
-        existing = getattr(product, 'slug', None) or ''
-        if existing:
-            used.add(existing)
-            continue
-        base = slugify(product.name)[:200] or f'product-{product.pk}'
-        slug = base
-        counter = 2
-        while slug in used:
-            suffix = f'-{counter}'
-            slug = f'{base[: 200 - len(suffix)]}{suffix}'
-            counter += 1
-        used.add(slug)
-        product.slug = slug
-        product.save(update_fields=['slug'])
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT slug FROM inventory_product WHERE slug IS NOT NULL AND slug != ''"
+        )
+        used = {row[0] for row in cursor.fetchall()}
+
+    with connection.cursor() as cursor:
+        for product_id, name in Product.objects.order_by('id').values_list('id', 'name'):
+            cursor.execute('SELECT slug FROM inventory_product WHERE id = %s', [product_id])
+            existing = (cursor.fetchone() or [''])[0]
+            if existing:
+                used.add(existing)
+                continue
+
+            base = slugify(name)[:200] or f'product-{product_id}'
+            slug = base
+            counter = 2
+            while slug in used:
+                suffix = f'-{counter}'
+                slug = f'{base[: 200 - len(suffix)]}{suffix}'
+                counter += 1
+            used.add(slug)
+            cursor.execute(
+                'UPDATE inventory_product SET slug = %s WHERE id = %s',
+                [slug, product_id],
+            )
 
 
 def ensure_slug_schema(apps, schema_editor):
