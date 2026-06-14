@@ -1,15 +1,19 @@
 # Kristie Store on Railway
 
-Kristie Store is a **Django** app (`backend/manage.py`, `core.wsgi`). Railway must **not** use the default Python start (`python app.py` / `python main.py`).
+Django app lives in **`backend/`** (`manage.py`, `core.wsgi`). Do **not** use Railway’s default `python app.py` start.
 
-This repo ships:
+## Fix “Application failed to respond” (502)
 
-- `Procfile` + `railway.toml` → `gunicorn --chdir backend core.wsgi:application`
-- `scripts/railway-start.sh` → migrate, seed, then gunicorn
+### 1. Railway → kistie-store → **Settings → Deploy**
 
-## Railway service: `kistie-store-production`
+- **Start Command:** leave **empty** (repo `Dockerfile` / `railway.toml` starts gunicorn).
+- If you see `python app.py` or `python main.py`, **delete it** and redeploy.
 
-### Required variables
+### 2. **Settings → Networking**
+
+- Public port: **8080** (must match Railway `PORT`).
+
+### 3. **Variables** (Raw Editor)
 
 | Variable | Value |
 |----------|--------|
@@ -19,11 +23,13 @@ This repo ships:
 | `ALLOWED_HOSTS` | `.railway.app kistie-store-production.up.railway.app` |
 | `SITE_URL` | `https://kistie-store-production.up.railway.app` |
 
-### Networking
+### 4. Redeploy
 
-Set the public port to match **`PORT`** (usually **8080** on Railway).
+After push to `main`, trigger **Deploy** → wait for build logs to show `gunicorn`, not `app.py`.
 
-### After deploy
+### 5. Verify
 
-- Health: `https://kistie-store-production.up.railway.app/health/`
-- Portfolio live demo links to this hostname (typo `kistie` vs `kristie`).
+- https://kistie-store-production.up.railway.app/health/?format=json  
+  Expected: `{"status":"ok","service":"kistie-store"}`
+
+**Note:** Service hostname is **`kistie-store`** (typo), not `kristie-store`.

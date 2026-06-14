@@ -71,9 +71,15 @@ load_env_file(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Render sets RENDER=true. Default DEBUG to False on Render, True locally.
+# Render sets RENDER=true. Default DEBUG to False on Render/Railway, True locally.
 is_render = os.environ.get('RENDER', '').lower() == 'true'
-debug_default = 'False' if is_render else 'True'
+is_railway = bool(
+    os.environ.get('RAILWAY_ENVIRONMENT')
+    or os.environ.get('RAILWAY_PROJECT_ID')
+    or os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+)
+is_hosted = is_render or is_railway
+debug_default = 'False' if is_hosted else 'True'
 DEBUG = os.environ.get('DJANGO_DEBUG', debug_default).lower() in ('1', 'true', 'yes')
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -87,15 +93,15 @@ elif DEBUG:
         'DJANGO_DEV_SECRET_KEY',
         'django-insecure-kistie-dev-only-rotate-for-shared-machines',
     )
-elif is_render and _django_render_build_command_running():
-    # Render injects DJANGO_SECRET_KEY for the running web service, not during the build step.
-    SECRET_KEY = 'render-build-phase-only-not-used-at-runtime'
+elif is_hosted and _django_render_build_command_running():
+    # Hosted build steps run before runtime secrets are always available.
+    SECRET_KEY = 'hosted-build-phase-only-not-used-at-runtime'
 else:
     raise ImproperlyConfigured(
         'Set DJANGO_SECRET_KEY when DEBUG=False (production / staging). '
-        'On Render, add DJANGO_SECRET_KEY to the web service Environment tab.'
+        'On Render or Railway, add DJANGO_SECRET_KEY to the web service environment.'
     )
-enable_admin_default = 'False' if is_render else 'True'
+enable_admin_default = 'False' if is_hosted else 'True'
 ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', enable_admin_default).lower() in ('1', 'true', 'yes')
 
 allowed_hosts_raw = os.environ.get('ALLOWED_HOSTS', '.onrender.com .railway.app localhost 127.0.0.1')
