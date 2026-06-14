@@ -98,7 +98,7 @@ else:
 enable_admin_default = 'False' if is_render else 'True'
 ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', enable_admin_default).lower() in ('1', 'true', 'yes')
 
-allowed_hosts_raw = os.environ.get('ALLOWED_HOSTS', '.onrender.com localhost 127.0.0.1')
+allowed_hosts_raw = os.environ.get('ALLOWED_HOSTS', '.onrender.com .railway.app localhost 127.0.0.1')
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.replace(',', ' ').split() if host.strip()]
 
 # Render provides the public hostname for each service. Trust it automatically.
@@ -106,9 +106,16 @@ render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip(
 if render_external_hostname and render_external_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_external_hostname)
 
+# Railway sets RAILWAY_PUBLIC_DOMAIN on each web service.
+railway_public_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
+if railway_public_domain and railway_public_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(railway_public_domain)
+
 CSRF_TRUSTED_ORIGINS = []
 if render_external_hostname:
     CSRF_TRUSTED_ORIGINS.append(f'https://{render_external_hostname}')
+if railway_public_domain:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{railway_public_domain}')
 for _raw in os.environ.get('CSRF_TRUSTED_ORIGINS', '').replace(',', ' ').split():
     _origin = _raw.strip()
     if _origin and _origin not in CSRF_TRUSTED_ORIGINS:
@@ -227,9 +234,13 @@ DATABASES = {
     }
 }
 
-# Override with DATABASE_URL when present (Render PostgreSQL, etc.)
+# Override with DATABASE_URL when present (Render / Railway PostgreSQL, etc.)
 _database_url = os.environ.get('DATABASE_URL')
 if _database_url:
+    if _database_url.startswith('postgres://'):
+        _database_url = 'postgresql://' + _database_url[len('postgres://') :]
+    if 'railway' in _database_url and 'sslmode=' not in _database_url:
+        _database_url += '&sslmode=require' if '?' in _database_url else '?sslmode=require'
     DATABASES['default'] = dj_database_url.config(
         default=_database_url,
         conn_max_age=600,
