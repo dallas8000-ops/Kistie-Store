@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "build": {
+      "commands": [
+        "DJANGO_SECRET_KEY=build-placeholder-not-used-at-runtime DJANGO_DEBUG=False python backend/manage.py collectstatic --noinput"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "sh scripts/railway-start.sh"
+  }
+}

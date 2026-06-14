@@ -22,7 +22,8 @@ Django app lives in **`backend/`** (`manage.py`, `core.wsgi`). Do **not** use Ra
 | `DJANGO_SECRET_KEY` | long random string |
 | `DJANGO_DEBUG` | `False` |
 | `ALLOWED_HOSTS` | `.railway.app kistie-store-production.up.railway.app` |
-| `SITE_URL` | `https://kistie-store-production.up.railway.app` |
+| `CSRF_TRUSTED_ORIGINS` | `https://kistie-store-production.up.railway.app` |
+| `RAILPACK_START_CMD` | `sh scripts/railway-start.sh` (optional; fixes Railpack if deploy still runs `python app.py`) |
 
 ### 4. Redeploy
 
