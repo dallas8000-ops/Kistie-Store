@@ -11,7 +11,9 @@ Django app lives in **`backend/`** (`manage.py`, `core.wsgi`). Do **not** use Ra
 
 ### 2. **Settings → Networking**
 
-- Public port: **8080** (must match Railway `PORT`).
+- **Target port:** **8080** on your public domain (Railway injects `PORT=8080`; gunicorn binds `0.0.0.0:$PORT`).
+- If the domain shows target port **3000** or **8000**, change it to **8080** — wrong target port causes 502 “Application failed to respond”.
+- Do **not** set a custom **Start Command** in the UI; the repo `Dockerfile` runs `scripts/railway-start.sh`.
 
 ### 3. **Variables** (Raw Editor)
 
