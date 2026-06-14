@@ -6,9 +6,8 @@ Django app lives in **`backend/`** (`manage.py`, `core.wsgi`). Do **not** use Ra
 
 ### 1. Railway → kistie-store → **Settings → Deploy**
 
-- **Start Command:** leave **empty** (repo `Dockerfile` / `railway.toml` starts gunicorn).
-- If you see `python app.py` or `python main.py`, **delete it** and redeploy.
-
+- **Start Command:** leave **empty** in the dashboard (repo `railway.toml` sets `sh scripts/railway-start.sh`).
+- If deploy logs show `python app.py || python main.py`, Railway is using **Railpack** instead of the Dockerfile — see **Settings → Build → Builder → Dockerfile** and redeploy after the latest `main` push (`railway.json` + `nixpacks.toml` fallback).
 ### 2. **Settings → Networking**
 
 - **Target port:** **8080** on your public domain (Railway injects `PORT=8080`; gunicorn binds `0.0.0.0:$PORT`).

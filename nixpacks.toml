@@ -1,0 +1,13 @@
+[variables]
+NIXPACKS_PYTHON_VERSION = "3.12"
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[phases.build]
+cmds = [
+  "DJANGO_SECRET_KEY=build-placeholder-not-used-at-runtime DJANGO_DEBUG=False python backend/manage.py collectstatic --noinput"
+]
+
+[start]
+cmd = "sh scripts/railway-start.sh"
