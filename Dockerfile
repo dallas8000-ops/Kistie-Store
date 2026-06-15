@@ -12,10 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SECRET_KEY=build-placeholder-not-used-at-runtime
-ENV DJANGO_DEBUG=False
 
-RUN python backend/manage.py collectstatic --noinput
+RUN DJANGO_SECRET_KEY=build-placeholder-not-used-at-runtime \
+    DJANGO_DEBUG=False \
+    python backend/manage.py collectstatic --noinput
 
 RUN chmod +x scripts/railway-start.sh
 

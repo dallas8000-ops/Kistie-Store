@@ -1,24 +1,48 @@
-# Kristie Store on Railway
+# Kistie Store on Railway — basic setup
 
-Django app lives in **`backend/`** (`manage.py`, `core.wsgi`). Do **not** use Railway’s default `python app.py` start.
+## Your Django app (unchanged)
 
-## Fix “Application failed to respond” (502)
+Railway does **not** edit your repo. The app was always:
 
-### 1. Railway → kistie-store → **Settings → Deploy**
+| Piece | Location |
+|-------|----------|
+| Django project | `backend/` |
+| `manage.py` | `backend/manage.py` |
+| WSGI | `backend/core/wsgi.py` → `core.wsgi:application` |
+| Dependencies | `requirements.txt` (repo root) |
 
-- **Custom Start Command:** must be **completely empty**. If it says `python app.py || python main.py`, delete it — that forces a start path that ignores `railpack.json` / `Procfile`.
-- **Redeploy** after every push to `main`; confirm the deployment shows commit **`ac3a624`** or newer (not an older SHA).
-- Add variable **`RAILPACK_START_CMD`** (highest priority for Railpack):
+That matches **`render.yaml`** (the original deploy spec):
 
-  ```
-  python backend/manage.py migrate --noinput && python -m gunicorn core.wsgi:application --chdir backend --bind 0.0.0.0:$PORT --workers 2 --timeout 120
-  ```### 2. **Settings → Networking**
+```yaml
+startCommand: gunicorn --chdir backend core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+```
 
-- **Target port:** **8080** on your public domain (Railway injects `PORT=8080`; gunicorn binds `0.0.0.0:$PORT`).
-- If the domain shows target port **3000** or **8000**, change it to **8080** — wrong target port causes 502 “Application failed to respond”.
-- Do **not** set a custom **Start Command** in the UI; the repo `Dockerfile` runs `scripts/railway-start.sh`.
+## What went wrong (not a Django bug)
 
-### 3. **Variables** (Raw Editor)
+Railway’s default builder **Railpack** assumes a flat Python app (`app.py` / `main.py` at repo root).  
+Your Django app lives in **`backend/`**, so Railpack ran the wrong start command and crashed.
+
+Extra files (`app.py`, `main.py`, root `manage.py`, etc.) were **workarounds** added in git — they were not part of the original app and piled on confusion.
+
+**This repo now uses one path only: the `Dockerfile`** (same idea as `render.yaml`).
+
+## Railway dashboard (do once)
+
+### 1. Source
+- Repo: `dallas8000-ops/Kistie-Store`
+- Branch: `main`
+- **Root directory:** empty (repo root)
+
+### 2. Build
+- **Builder:** `Dockerfile` (not Railpack)
+- **Dockerfile path:** `Dockerfile`
+
+If deploy logs say `railpack-plan.json` or `python app.py`, the builder is still wrong or you **Redeployed an old artifact** — trigger a **new** deploy from GitHub instead.
+
+### 3. Deploy
+- **Custom start command:** **empty** (Dockerfile `CMD` runs `scripts/railway-start.sh`)
+
+### 4. Variables (minimum)
 
 | Variable | Value |
 |----------|--------|
@@ -26,16 +50,20 @@ Django app lives in **`backend/`** (`manage.py`, `core.wsgi`). Do **not** use Ra
 | `DJANGO_SECRET_KEY` | long random string |
 | `DJANGO_DEBUG` | `False` |
 | `ALLOWED_HOSTS` | `.railway.app kistie-store-production.up.railway.app` |
+| `SITE_URL` | `https://kistie-store-production.up.railway.app` |
 | `CSRF_TRUSTED_ORIGINS` | `https://kistie-store-production.up.railway.app` |
-| `RAILPACK_START_CMD` | `sh scripts/railway-start.sh` (optional; fixes Railpack if deploy still runs `python app.py`) |
 
-### 4. Redeploy
+Do **not** set `PORT` — Railway injects it.
 
-After push to `main`, trigger **Deploy** → wait for build logs to show `gunicorn`, not `app.py`.
+### 5. Deploy fresh (critical)
 
-### 5. Verify
+**Deployments → Deploy from GitHub** (latest `main`).  
+Do **not** use “Redeploy” on an old deployment — that reuses a broken Railpack image.
 
-- https://kistie-store-production.up.railway.app/health/?format=json  
-  Expected: `{"status":"ok","service":"kistie-store"}`
+A good build log starts with: `load build definition from Dockerfile`  
+A good runtime log shows: `Starting Kistie Store (PORT=8080)...` then gunicorn listening.
 
-**Note:** Service hostname is **`kistie-store`** (typo), not `kristie-store`.
+### 6. Verify
+
+`https://kistie-store-production.up.railway.app/health/?format=json`  
+→ `{"status":"ok","service":"kistie-store"}`
