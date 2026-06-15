@@ -8,6 +8,6 @@
     }
   },
   "deploy": {
-    "startCommand": "sh scripts/railway-start.sh"
+    "startCommand": "python backend/manage.py migrate --noinput && python -m gunicorn core.wsgi:application --chdir backend --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120"
   }
 }

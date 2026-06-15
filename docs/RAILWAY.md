@@ -6,9 +6,13 @@ Django app lives in **`backend/`** (`manage.py`, `core.wsgi`). Do **not** use Ra
 
 ### 1. Railway → kistie-store → **Settings → Deploy**
 
-- **Start Command:** leave **empty** in the dashboard (repo `railway.toml` sets `sh scripts/railway-start.sh`).
-- If deploy logs show `python app.py || python main.py`, Railway is using **Railpack** instead of the Dockerfile — see **Settings → Build → Builder → Dockerfile** and redeploy after the latest `main` push (`railway.json` + `nixpacks.toml` fallback).
-### 2. **Settings → Networking**
+- **Custom Start Command:** must be **completely empty**. If it says `python app.py || python main.py`, delete it — that forces a start path that ignores `railpack.json` / `Procfile`.
+- **Redeploy** after every push to `main`; confirm the deployment shows commit **`ac3a624`** or newer (not an older SHA).
+- Add variable **`RAILPACK_START_CMD`** (highest priority for Railpack):
+
+  ```
+  python backend/manage.py migrate --noinput && python -m gunicorn core.wsgi:application --chdir backend --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+  ```### 2. **Settings → Networking**
 
 - **Target port:** **8080** on your public domain (Railway injects `PORT=8080`; gunicorn binds `0.0.0.0:$PORT`).
 - If the domain shows target port **3000** or **8000**, change it to **8080** — wrong target port causes 502 “Application failed to respond”.
