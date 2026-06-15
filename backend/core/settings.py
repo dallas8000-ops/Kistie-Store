@@ -245,7 +245,11 @@ _database_url = os.environ.get('DATABASE_URL')
 if _database_url:
     if _database_url.startswith('postgres://'):
         _database_url = 'postgresql://' + _database_url[len('postgres://') :]
-    if 'railway' in _database_url and 'sslmode=' not in _database_url:
+    # Railway private Postgres (*.railway.internal) does not use the same SSL path as public URLs.
+    if 'railway.internal' in _database_url:
+        if 'sslmode=' not in _database_url:
+            _database_url += '&sslmode=disable' if '?' in _database_url else '?sslmode=disable'
+    elif 'railway' in _database_url and 'sslmode=' not in _database_url:
         _database_url += '&sslmode=require' if '?' in _database_url else '?sslmode=require'
     DATABASES['default'] = dj_database_url.config(
         default=_database_url,
