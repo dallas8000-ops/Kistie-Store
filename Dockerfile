@@ -24,5 +24,6 @@ RUN DJANGO_SECRET_KEY=build-placeholder-not-used-at-runtime \
 
 EXPOSE 8080
 
-# Matches root Procfile (same level as requirements.txt)
-CMD ["sh", "-c", "python backend/manage.py migrate --noinput && exec gunicorn --chdir backend core.wsgi:application --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120"]
+RUN chmod +x scripts/docker-start.sh
+
+CMD ["scripts/docker-start.sh"]

@@ -252,6 +252,8 @@ if _database_url:
         conn_max_age=600,
         conn_health_checks=True,
     )
+    DATABASES['default'].setdefault('OPTIONS', {})
+    DATABASES['default']['OPTIONS'].setdefault('connect_timeout', 10)
 
 
 # Password validation
