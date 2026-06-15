@@ -1,3 +1,8 @@
+# Railway production image — Kistie Store
+# manage.py: backend/manage.py
+# WSGI: core.wsgi:application (gunicorn --chdir backend)
+# Port: ${PORT:-8080}
+
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
