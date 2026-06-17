@@ -83,7 +83,10 @@ debug_default = 'False' if is_hosted else 'True'
 DEBUG = os.environ.get('DJANGO_DEBUG', debug_default).lower() in ('1', 'true', 'yes')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-DJANGO_SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', '').strip()
+DJANGO_SECRET_KEY = (
+    os.environ.get('DJANGO_SECRET_KEY', '').strip()
+    or os.environ.get('SECRET_KEY', '').strip()
+)
 if DJANGO_SECRET_KEY:
     SECRET_KEY = DJANGO_SECRET_KEY
 elif DEBUG:
@@ -104,8 +107,17 @@ else:
 enable_admin_default = 'False' if is_hosted else 'True'
 ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', enable_admin_default).lower() in ('1', 'true', 'yes')
 
-allowed_hosts_raw = os.environ.get('ALLOWED_HOSTS', '.onrender.com .railway.app localhost 127.0.0.1')
+allowed_hosts_raw = (
+    os.environ.get('ALLOWED_HOSTS')
+    or os.environ.get('DJANGO_ALLOWED_HOSTS')
+    or '.onrender.com .railway.app .up.railway.app localhost 127.0.0.1'
+)
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.replace(',', ' ').split() if host.strip()]
+
+if is_railway:
+    for _railway_host in ('.railway.app', '.up.railway.app', 'healthcheck.railway.app'):
+        if _railway_host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_railway_host)
 
 # Render provides the public hostname for each service. Trust it automatically.
 render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip()
@@ -243,19 +255,21 @@ DATABASES = {
 # Override with DATABASE_URL when present (Render / Railway PostgreSQL, etc.)
 _database_url = os.environ.get('DATABASE_URL')
 if _database_url:
+    _db_kwargs = {'conn_max_age': 600}
     if _database_url.startswith('postgres://'):
         _database_url = 'postgresql://' + _database_url[len('postgres://') :]
     # Railway private Postgres (*.railway.internal) does not use the same SSL path as public URLs.
     if 'railway.internal' in _database_url:
         if 'sslmode=' not in _database_url:
             _database_url += '&sslmode=disable' if '?' in _database_url else '?sslmode=disable'
-    elif 'railway' in _database_url and 'sslmode=' not in _database_url:
-        _database_url += '&sslmode=require' if '?' in _database_url else '?sslmode=require'
-    DATABASES['default'] = dj_database_url.config(
-        default=_database_url,
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
+        _db_kwargs['ssl_require'] = False
+    elif 'railway' in _database_url:
+        if 'sslmode=' not in _database_url:
+            _database_url += '&sslmode=require' if '?' in _database_url else '?sslmode=require'
+        _db_kwargs['ssl_require'] = not DEBUG
+    else:
+        _db_kwargs['ssl_require'] = not DEBUG
+    DATABASES['default'] = dj_database_url.parse(_database_url, **_db_kwargs)
     DATABASES['default'].setdefault('OPTIONS', {})
     DATABASES['default']['OPTIONS'].setdefault('connect_timeout', 10)
 
@@ -340,7 +354,8 @@ if not DEBUG and not _django_tests_running():
     USE_X_FORWARDED_HOST = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
+    # Railway probes /health/ over plain HTTP inside the container; SSL redirect fails the check.
+    SECURE_SSL_REDIRECT = not is_railway
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'

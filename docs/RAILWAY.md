@@ -1,69 +1,48 @@
-# Kistie Store on Railway — basic setup
+# Kistie Store — go live (pick one)
 
-## Your Django app (unchanged)
+## Option A: Render (simplest — already configured)
 
-Railway does **not** edit your repo. The app was always:
+The repo includes **`render.yaml`**. Render knows this is Django in `backend/` — no Dockerfile fights.
 
-| Piece | Location |
-|-------|----------|
-| Django project | `backend/` |
-| `manage.py` | `backend/manage.py` |
-| WSGI | `backend/core/wsgi.py` → `core.wsgi:application` |
-| Dependencies | `requirements.txt` (repo root) |
+1. [render.com](https://render.com) → **New** → **Blueprint** → connect `dallas8000-ops/Kistie-Store`
+2. Approve the blueprint (web + Postgres). Render auto-sets `DJANGO_SECRET_KEY` and `DATABASE_URL`.
+3. Add your email secrets in the dashboard if you use contact form SMTP.
+4. URL will be like `https://kristie-store.onrender.com` — update `SITE_URL` / DNS when ready.
 
-That matches **`render.yaml`** (the original deploy spec):
+Health: `/health/?format=json` → `{"status":"ok","service":"kistie-store"}`
 
-```yaml
-startCommand: gunicorn --chdir backend core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
-```
+---
 
-## What went wrong (not a Django bug)
+## Option B: Railway
 
-Railway’s default builder **Railpack** assumes a flat Python app (`app.py` / `main.py` at repo root).  
-Your Django app lives in **`backend/`**, so Railpack ran the wrong start command and crashed.
+### Find the right service
 
-Extra files (`app.py`, `main.py`, root `manage.py`, etc.) were **workarounds** added in git — they were not part of the original app and piled on confusion.
+Railway does **not** name it “Kistie Store web”. You need the service whose **Source** is repo **`Kistie-Store`** (not the Postgres box).
 
-**This repo now uses one path only: the `Dockerfile`** (same idea as `render.yaml`).
+If only Postgres exists → **+ New → GitHub Repo → Kistie-Store**.
 
-## Railway dashboard (do once)
+### Variables (on the Kistie-Store repo service only)
 
-### 1. Source
-- Repo: `dallas8000-ops/Kistie-Store`
-- Branch: `main`
-- **Root directory:** empty (repo root)
+| Name | Value |
+|------|--------|
+| `DJANGO_SECRET_KEY` | long random string (copy from local `backend/.env` — **not** deployed automatically) |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — pick your Postgres service from the reference menu |
+| `ALLOWED_HOSTS` | `.railway.app .up.railway.app kistie-store-production.up.railway.app healthcheck.railway.app` |
 
-### 2. Build
-- **Builder:** `Dockerfile` (not Railpack)
-- **Dockerfile path:** `Dockerfile`
+Do **not** paste `DATABASE_URL` twice on one line. Do **not** set `PORT`.
 
-If deploy logs say `railpack-plan.json` or `python app.py`, the builder is still wrong or you **Redeployed an old artifact** — trigger a **new** deploy from GitHub instead.
+### Build
 
-### 3. Deploy
-- **Custom start command:** **empty** (Dockerfile `CMD` runs `scripts/railway-start.sh`)
+- Builder: **Dockerfile** (from `railway.toml`)
+- Custom start command: **empty**
 
-### 4. Variables (minimum)
+### Deploy
 
-| Variable | Value |
-|----------|--------|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `DJANGO_SECRET_KEY` | long random string |
-| `DJANGO_DEBUG` | `False` |
-| `ALLOWED_HOSTS` | `.railway.app kistie-store-production.up.railway.app` |
-| `SITE_URL` | `https://kistie-store-production.up.railway.app` |
-| `CSRF_TRUSTED_ORIGINS` | `https://kistie-store-production.up.railway.app` |
+**Deploy latest commit** from GitHub — not **Redeploy** on an old deployment.
 
-Do **not** set `PORT` — Railway injects it.
+Good build log: `load build definition from Dockerfile`  
+Good runtime log: `[kistie-store] gunicorn on 0.0.0.0:8080`
 
-### 5. Deploy fresh (critical)
+### Verify
 
-**Deployments → Deploy from GitHub** (latest `main`).  
-Do **not** use “Redeploy” on an old deployment — that reuses a broken Railpack image.
-
-A good build log starts with: `load build definition from Dockerfile`  
-A good runtime log shows: `Starting Kistie Store (PORT=8080)...` then gunicorn listening.
-
-### 6. Verify
-
-`https://kistie-store-production.up.railway.app/health/?format=json`  
-→ `{"status":"ok","service":"kistie-store"}`
+`https://<your-railway-domain>/health/?format=json`
