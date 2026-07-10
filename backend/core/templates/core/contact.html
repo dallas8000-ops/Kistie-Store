@@ -36,15 +36,6 @@
     <div class="col-lg-7">
       <article class="contact-card h-100">
         <h2 class="h4 page-title mb-3">Send a store inquiry</h2>
-        {% if contact_email_console %}
-        <div class="alert alert-info d-flex align-items-start gap-2 mb-3 contact-console-banner" role="status">
-          <i class="bi bi-terminal flex-shrink-0 mt-1" aria-hidden="true"></i>
-          <div class="small">
-            <strong>Development email mode.</strong> Outgoing mail uses Django’s <strong>console</strong> backend: nothing is sent to a real inbox, but each message is printed in the terminal where <code>runserver</code> (or your process) is running. Inquiries are still saved in the database for staff in Django admin.
-            <span class="d-block text-muted mt-1">Production: set <code>DJANGO_EMAIL_BACKEND</code> to SMTP (see <code>backend/.env.example</code>).</span>
-          </div>
-        </div>
-        {% endif %}
         <form method="post" novalidate>
           {% csrf_token %}
           <div class="row g-3">

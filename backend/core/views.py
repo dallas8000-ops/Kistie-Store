@@ -588,14 +588,7 @@ def _payment_instructions(country, payment_method):
 
 
 def _flash_contact_inquiry_success(request):
-    backend = (getattr(settings, 'EMAIL_BACKEND', '') or '').lower()
-    if 'console' in backend:
-        messages.success(
-            request,
-            'Inquiry saved. Email preview was printed to the server console (console backend — not delivered to a real inbox).',
-        )
-    else:
-        messages.success(request, 'Message sent. We received your inquiry and will follow up soon.')
+    messages.success(request, 'Message sent. We received your inquiry and will follow up soon.')
 
 
 def _flash_contact_inquiry_failure(request, exc):
@@ -665,11 +658,8 @@ def contact(request):
     if sent:
         return redirect('contact')
 
-    email_backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
-    contact_email_console = email_backend == 'django.core.mail.backends.console.EmailBackend'
     return render(request, 'core/contact.html', {
         'contact_form': contact_form,
-        'contact_email_console': contact_email_console,
     })
 
 
