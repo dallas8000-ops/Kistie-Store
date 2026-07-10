@@ -1,6 +1,6 @@
 # Kistie Store — Railway deploy
 
-Production runs on **Railway** (Dockerfile + PostgreSQL). There is no Render blueprint in this repo.
+Production runs on **Railway** (Dockerfile + PostgreSQL).
 
 ## Find the right service
 
