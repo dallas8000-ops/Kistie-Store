@@ -47,6 +47,9 @@
 				<p class="text-muted">Kistie_Store works directly with shoppers who want imported looks, sizing guidance, and delivery support from Kampala to international destinations.</p>
 				<p class="mb-1"><strong>Phone:</strong> <a href="tel:+{{ whatsapp_store_digits }}">{{ whatsapp_store_display }}</a></p>
 				<p class="mb-2"><strong>WhatsApp:</strong> <a href="{{ whatsapp_store_url }}" target="_blank" rel="noopener noreferrer">{{ whatsapp_store_display }}</a></p>
+				{% if store_email %}
+				<p class="mb-1"><strong>Email:</strong> <a href="mailto:{{ store_email }}">{{ store_email }}</a></p>
+				{% endif %}
 				<a class="btn btn-brand-whatsapp btn-sm" href="{{ whatsapp_store_url }}" target="_blank" rel="noopener noreferrer">
 					<i class="bi bi-whatsapp" aria-hidden="true"></i> Message us on WhatsApp
 				</a>

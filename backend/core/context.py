@@ -21,4 +21,5 @@ def feature_flags(_request):
         'whatsapp_store_url': whatsapp_url(wa_digits, ''),
         'whatsapp_store_display': format_store_phone_display(wa_digits),
         'store_address': getattr(settings, 'STORE_ADDRESS', 'Kampala, Uganda'),
+        'store_email': getattr(settings, 'CONTACT_RECIPIENT_EMAIL', ''),
     }

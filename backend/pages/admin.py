@@ -5,8 +5,8 @@ from .models import ContactInquiry
 
 @admin.register(ContactInquiry)
 class ContactInquiryAdmin(admin.ModelAdmin):
-	list_display = ('name', 'email', 'subject', 'created_at')
-	list_filter = ('created_at',)
+	list_display = ('name', 'email', 'subject', 'inquiry_tag', 'created_at')
+	list_filter = ('inquiry_tag', 'created_at')
 	search_fields = ('name', 'email', 'subject', 'message')
 	readonly_fields = ('created_at',)
 	date_hierarchy = 'created_at'

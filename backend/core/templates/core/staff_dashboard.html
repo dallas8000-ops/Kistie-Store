@@ -109,6 +109,7 @@
             <tr>
               <th>When</th>
               <th>Name</th>
+              <th>Email</th>
               <th>Subject</th>
               <th>Tag</th>
             </tr>
@@ -118,6 +119,7 @@
             <tr>
               <td class="text-nowrap small">{{ q.created_at|date:"d M H:i" }}</td>
               <td>{{ q.name }}</td>
+              <td class="small"><a href="mailto:{{ q.email }}">{{ q.email }}</a></td>
               <td>{{ q.subject }}</td>
               <td>
                 {% if q.inquiry_tag %}
