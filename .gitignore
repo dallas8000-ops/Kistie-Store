@@ -8,7 +8,7 @@ venv/
 
 # Django
 *.sqlite3
-# media/  # Temporarily enabled to deploy product images to Render
+# media/  # Product images may be committed for Railway deploy seeding
 backend/staticfiles/
 staticfiles/
 

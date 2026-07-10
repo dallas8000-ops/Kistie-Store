@@ -318,14 +318,14 @@
                 </p>
                 
                 <p>
-                    <a href="https://kristie-store.onrender.com" class="live-link" target="_blank">
+                    <a href="https://kistie-store-production.up.railway.app" class="live-link" target="_blank">
                         🌐 Live Demo
                     </a>
                 </p>
                 
                 <p style="margin-top: 40px; font-size: 0.95em; color: #666;">
                     GitHub: <strong>https://github.com/dallas8000-ops/Kistie-Store</strong><br>
-                    Live Site: <strong>https://kristie-store.onrender.com</strong>
+                    Live Site: <strong>https://kistie-store-production.up.railway.app</strong>
                 </p>
             </div>
         </div>
@@ -341,7 +341,7 @@
         <p>Kistie Store is a full-stack ecommerce application focused on women's fashion, accessories, jewelry, shoes, perfume, and lingerie for the East African market. The platform combines a production Django backend, admin-managed inventory, a comprehensive customer shopping flow, responsive pages, and a complete payment-ready architecture.</p>
         
         <div class="highlight">
-            <strong>Live Platform:</strong> https://kristie-store.onrender.com
+            <strong>Live Platform:</strong> https://kistie-store-production.up.railway.app
         </div>
         
         <h3>Problem Statement</h3>
@@ -375,7 +375,7 @@
         </div>
         <p><strong>Framework:</strong> Django for SSR (Server-Side Rendering) for optimal SEO, sessions, and security. DRF provides JSON API endpoints for integrations.</p>
         <p><strong>Database:</strong> PostgreSQL for reliable data storage with proper migrations and relationships.</p>
-        <p><strong>Deployment:</strong> Render.com with production environment and automated CI/CD.</p>
+        <p><strong>Deployment:</strong> Railway with production environment and automated CI/CD.</p>
         
         <h3>Frontend</h3>
         <div style="margin: 15px 0;">
@@ -627,16 +627,16 @@ SMTP_PASSWORD=your-password
         <h1>Deployment</h1>
         
         <h3>Production Environment</h3>
-        <p>The application is deployed on <strong>Render.com</strong>:</p>
+        <p>The application is deployed on <strong>Railway</strong>:</p>
         <ul>
-            <li><strong>Live URL:</strong> https://kristie-store.onrender.com</li>
+            <li><strong>Live URL:</strong> https://kistie-store-production.up.railway.app</li>
             <li><strong>Backend:</strong> Django with Gunicorn</li>
             <li><strong>Database:</strong> PostgreSQL</li>
             <li><strong>Build Process:</strong> Automated migrations and static file collection</li>
         </ul>
         
         <h3>Deployment Configuration</h3>
-        <p>The project includes <code>render.yaml</code> for automated deployment:</p>
+        <p>The project includes <code>railway.toml</code> for automated deployment:</p>
         <pre><code>services:
   - type: web
     name: kistie-store
@@ -654,7 +654,7 @@ SMTP_PASSWORD=your-password
         <p>Automated testing and deployment on every push to main branch via GitHub Actions:</p>
         <ul>
             <li>Runs <code>python manage.py test</code> on all commits</li>
-            <li>Deploys to Render on successful test runs</li>
+            <li>Deploys to Railway on successful test runs</li>
             <li>Automatically collects static files</li>
             <li>Runs database migrations</li>
         </ul>
@@ -694,7 +694,7 @@ SMTP_PASSWORD=your-password
 │   └── screenshots/            # Project screenshots
 ├── scripts/                    # Utility scripts
 ├── requirements.txt            # Python dependencies
-├── render.yaml                 # Deployment config
+├── railway.toml                 # Deployment config
 ├── .github/workflows/          # CI/CD pipeline
 └── README.md                   # Project README
 </code></pre>
@@ -782,7 +782,7 @@ SMTP_PASSWORD=your-password
         <ul>
             <li>Installs dependencies from requirements.txt</li>
             <li>Runs all tests in backend/</li>
-            <li>Deploys to Render on success</li>
+            <li>Deploys to Railway on success</li>
         </ul>
         
         <h3>Quality Assurance</h3>
@@ -896,7 +896,7 @@ SMTP_PASSWORD=your-password
         <p><strong>License:</strong> MIT License</p>
         
         <h3>Live Demo</h3>
-        <p><strong>Production Site:</strong> <a href="https://kristie-store.onrender.com">https://kristie-store.onrender.com</a></p>
+        <p><strong>Production Site:</strong> <a href="https://kistie-store-production.up.railway.app">https://kistie-store-production.up.railway.app</a></p>
         <p><strong>Admin Panel:</strong> Available through site navigation</p>
         
         <!-- CONCLUSION -->
@@ -940,8 +940,8 @@ SMTP_PASSWORD=your-password
         </ul>
         
         <h3>Live Application</h3>
-        <p><strong>Live URL:</strong> <a href="https://kristie-store.onrender.com">https://kristie-store.onrender.com</a></p>
-        <p>The application is running on Render with automatic deployments from the main branch.</p>
+        <p><strong>Live URL:</strong> <a href="https://kistie-store-production.up.railway.app">https://kistie-store-production.up.railway.app</a></p>
+        <p>The application is running on Railway with automatic deployments from the main branch.</p>
         
         <div class="highlight">
             <p><strong>Contact & Support:</strong> For questions or support, please visit the GitHub repository or create an issue at:</p>

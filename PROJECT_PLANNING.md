@@ -177,7 +177,7 @@ Checklist:
 
 ### Add Card: Submission Packaging
 Checklist:
-- Confirm live Render URL in README
+- Confirm live Railway URL in README
 - Confirm Trello board link in README
 - Confirm GitHub repository link in README
 - Prepare final screenshots or demo assets
@@ -270,7 +270,7 @@ Checklist:
 
 ### Card: Submission Packaging
 Checklist:
-- Confirm live Render URL in README
+- Confirm live Railway URL in README
 - Confirm Trello board link in README
 - Confirm GitHub repository link in README
 - Prepare final screenshots or demo assets

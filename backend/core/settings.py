@@ -26,8 +26,8 @@ def _django_tests_running():
     return len(sys.argv) > 1 and sys.argv[1] == 'test'
 
 
-def _django_render_build_command_running():
-    """True for manage.py commands Render runs before the web process starts."""
+def _django_hosted_build_command_running():
+    """True for manage.py commands Railway runs before the web process starts."""
     if len(sys.argv) < 2:
         return False
     return sys.argv[1] in {
@@ -71,14 +71,13 @@ load_env_file(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Render sets RENDER=true. Default DEBUG to False on Render/Railway, True locally.
-is_render = os.environ.get('RENDER', '').lower() == 'true'
+# Railway sets RAILWAY_* vars. Default DEBUG to False on Railway, True locally.
 is_railway = bool(
     os.environ.get('RAILWAY_ENVIRONMENT')
     or os.environ.get('RAILWAY_PROJECT_ID')
     or os.environ.get('RAILWAY_PUBLIC_DOMAIN')
 )
-is_hosted = is_render or is_railway
+is_hosted = is_railway
 debug_default = 'False' if is_hosted else 'True'
 DEBUG = os.environ.get('DJANGO_DEBUG', debug_default).lower() in ('1', 'true', 'yes')
 
@@ -96,13 +95,13 @@ elif DEBUG:
         'DJANGO_DEV_SECRET_KEY',
         'django-insecure-kistie-dev-only-rotate-for-shared-machines',
     )
-elif is_hosted and _django_render_build_command_running():
+elif is_hosted and _django_hosted_build_command_running():
     # Hosted build steps run before runtime secrets are always available.
     SECRET_KEY = 'hosted-build-phase-only-not-used-at-runtime'
 else:
     raise ImproperlyConfigured(
         'Set DJANGO_SECRET_KEY when DEBUG=False (production / staging). '
-        'On Render or Railway, add DJANGO_SECRET_KEY to the web service environment.'
+        'On Railway, add DJANGO_SECRET_KEY to the web service environment.'
     )
 enable_admin_default = 'False' if is_hosted else 'True'
 ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', enable_admin_default).lower() in ('1', 'true', 'yes')
@@ -110,7 +109,7 @@ ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', enable_admin_default).lower
 allowed_hosts_raw = (
     os.environ.get('ALLOWED_HOSTS')
     or os.environ.get('DJANGO_ALLOWED_HOSTS')
-    or '.onrender.com .railway.app .up.railway.app localhost 127.0.0.1'
+    or '.railway.app .up.railway.app localhost 127.0.0.1'
 )
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.replace(',', ' ').split() if host.strip()]
 
@@ -119,19 +118,12 @@ if is_railway:
         if _railway_host not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(_railway_host)
 
-# Render provides the public hostname for each service. Trust it automatically.
-render_external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', '').strip()
-if render_external_hostname and render_external_hostname not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(render_external_hostname)
-
 # Railway sets RAILWAY_PUBLIC_DOMAIN on each web service.
 railway_public_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
 if railway_public_domain and railway_public_domain not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(railway_public_domain)
 
 CSRF_TRUSTED_ORIGINS = []
-if render_external_hostname:
-    CSRF_TRUSTED_ORIGINS.append(f'https://{render_external_hostname}')
 if railway_public_domain:
     CSRF_TRUSTED_ORIGINS.append(f'https://{railway_public_domain}')
 for _raw in os.environ.get('CSRF_TRUSTED_ORIGINS', '').replace(',', ' ').split():
@@ -159,14 +151,14 @@ if EMAIL_HOST == 'smtp.gmail.com' and EMAIL_HOST_PASSWORD:
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False').lower() in ('1', 'true', 'yes', 'on')
 DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@eastafricafashion.local')
 CONTACT_RECIPIENT_EMAIL = os.environ.get('CONTACT_RECIPIENT_EMAIL', 'dallas8000@gmail.com')
-SITE_URL = os.environ.get('SITE_URL', 'https://kristie-store.onrender.com').strip()
+SITE_URL = os.environ.get('SITE_URL', 'https://kistie-store-production.up.railway.app').strip()
 WHATSAPP_STORE_NUMBER = os.environ.get('WHATSAPP_STORE_NUMBER', '256704757198').strip()
 ORDER_ALERT_EMAIL = os.environ.get('ORDER_ALERT_EMAIL', CONTACT_RECIPIENT_EMAIL).strip()
 STORE_ADDRESS = os.environ.get(
     'STORE_ADDRESS',
     'Prime Complex Building, Wilson Street, Shop No. C-03, Kampala, Uganda',
 ).strip()
-# Override on Render/local with your real profile URL if the handle differs.
+# Override on Railway/local with your real profile URL if the handle differs.
 INSTAGRAM_PROFILE_URL = os.environ.get(
     'INSTAGRAM_PROFILE_URL',
     'https://www.instagram.com/kistie_storeug/',
@@ -187,7 +179,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '').strip()
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini').strip()
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash').strip()
-# Pesapal handoff: Node payments service URL (local dev default). Set on Render to your deployed payments base + path.
+# Pesapal handoff: Node payments service URL (local dev default). Set on Railway to your deployed payments base + path.
 PESAPAL_INITIATE_URL = os.environ.get(
     'PESAPAL_INITIATE_URL',
     'http://127.0.0.1:5000/api/pay/pesapal',
@@ -256,7 +248,7 @@ DATABASES = {
     }
 }
 
-# Override with DATABASE_URL when present (Render / Railway PostgreSQL, etc.)
+# Override with DATABASE_URL when present (Railway PostgreSQL, etc.)
 _database_url = os.environ.get('DATABASE_URL')
 if _database_url:
     _db_kwargs = {'conn_max_age': 600}
@@ -356,7 +348,7 @@ REST_FRAMEWORK = {
     },
 }
 
-# --- Production TLS / cookies (Render, Railway, etc. terminate TLS and set X-Forwarded-Proto) ---
+# --- Production TLS / cookies (Railway terminates TLS and sets X-Forwarded-Proto) ---
 if not DEBUG and not _django_tests_running():
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     USE_X_FORWARDED_HOST = True
