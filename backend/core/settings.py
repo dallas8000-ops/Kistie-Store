@@ -162,6 +162,10 @@ CONTACT_RECIPIENT_EMAIL = os.environ.get('CONTACT_RECIPIENT_EMAIL', 'dallas8000@
 SITE_URL = os.environ.get('SITE_URL', 'https://kristie-store.onrender.com').strip()
 WHATSAPP_STORE_NUMBER = os.environ.get('WHATSAPP_STORE_NUMBER', '256704757198').strip()
 ORDER_ALERT_EMAIL = os.environ.get('ORDER_ALERT_EMAIL', CONTACT_RECIPIENT_EMAIL).strip()
+STORE_ADDRESS = os.environ.get(
+    'STORE_ADDRESS',
+    'Prime Complex Building, Wilson Street, Shop No. C-03, Kampala, Uganda',
+).strip()
 # Override on Render/local with your real profile URL if the handle differs.
 INSTAGRAM_PROFILE_URL = os.environ.get(
     'INSTAGRAM_PROFILE_URL',
@@ -318,7 +322,11 @@ CACHES = {
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'core' / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Manifest storage needs collectstatic; use plain storage under `manage.py test` (CI).
+if _django_tests_running():
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files (user-uploaded)
 MEDIA_URL = '/media/'

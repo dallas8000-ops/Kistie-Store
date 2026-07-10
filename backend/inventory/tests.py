@@ -1,10 +1,12 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
+from .category_sorting import infer_category_name
 from .models import Category, Product
 
 
@@ -109,3 +111,24 @@ class InventoryApiSmokeTests(APITestCase):
 		p.refresh_from_db()
 		self.assertTrue(p.in_stock)
 		self.assertEqual(p.stock_quantity, 4)
+
+	def test_category_sorting_recognizes_new_accessory_categories(self):
+		self.assertEqual(infer_category_name('Red Leather Purse'), 'Purses')
+		self.assertEqual(infer_category_name('Gold Hoop Earrings'), 'Jewelry')
+		self.assertEqual(infer_category_name('Black Platform Shoes'), 'Shoes')
+
+	def test_sort_inventory_categories_updates_default_products(self):
+		default = Category.objects.create(name='Default', description='')
+		product = Product.objects.create(
+			name='Gold Chain Necklace',
+			description='',
+			price_usd=Decimal('15.00'),
+			price_ugx=Decimal('55500.00'),
+			category=default,
+			sizes='32,34',
+			stock_quantity=2,
+		)
+
+		call_command('sort_inventory_categories', '--include-default-only')
+		product.refresh_from_db()
+		self.assertEqual(product.category.name, 'Jewelry')
