@@ -5,7 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Category, Product, ProductImage, ProductReview
+from .models import Category, Product, ProductImage, ProductReview, Shipment, Vendor
 from .pricing import apply_price_suggestion, suggest_price_for_product
 
 
@@ -93,30 +93,49 @@ def _generated_catalog_description(product):
 		return f'A {color} {item_type} {vibe}'
 	return f'A {item_type} {vibe}'
 
+
+@admin.register(Vendor)
+class VendorAdmin(admin.ModelAdmin):
+	list_display = ('name', 'origin_country', 'contact_person', 'lead_time_days', 'created_at')
+	list_filter = ('origin_country', 'created_at')
+	search_fields = ('name', 'contact_person', 'email', 'whatsapp_number')
+	ordering = ('name',)
+
+
+@admin.register(Shipment)
+class ShipmentAdmin(admin.ModelAdmin):
+	list_display = ('vendor', 'tracking_number', 'status', 'estimated_arrival', 'updated_at')
+	list_filter = ('status', 'vendor', 'created_at')
+	search_fields = ('tracking_number', 'notes', 'vendor__name')
+	date_hierarchy = 'created_at'
+	ordering = ('-created_at',)
+
+
 class ProductImageInline(admin.TabularInline):
 	model = ProductImage
 	extra = 1
 
+
 class ProductAdmin(admin.ModelAdmin):
 	readonly_fields = ('in_stock', 'slug')
 	list_display = (
-		'name', 'slug', 'category', 'price_usd', 'price_ugx', 'stock_quantity', 'in_stock', 'created_at',
+		'name', 'slug', 'category', 'vendor', 'price_usd', 'stock_quantity', 'in_stock', 'created_at',
 	)
-	list_filter = ('category', 'in_stock', 'created_at')
-	search_fields = ('name', 'slug', 'description', 'color', 'sizes')
+	list_filter = ('category', 'vendor', 'in_stock', 'created_at')
+	search_fields = ('name', 'slug', 'description', 'color', 'sizes', 'vendor_sku')
 	list_editable = ('stock_quantity',)
 	list_display_links = ('name',)
 	date_hierarchy = 'created_at'
 	ordering = ('-created_at',)
-	autocomplete_fields = ('category',)
+	autocomplete_fields = ('category', 'vendor')
 	fieldsets = (
 		('Product Information', {
-			'fields': ('name', 'slug', 'category', 'description', 'color', 'stock_quantity', 'in_stock'),
+			'fields': ('name', 'slug', 'category', 'vendor', 'description', 'color', 'stock_quantity', 'in_stock'),
 			'description': 'Availability follows Stock quantity automatically (In stock is read-only).',
 		}),
-		('Pricing', {
-			'fields': ('price_usd', 'price_ugx', 'old_price'),
-			'description': 'Set prices in USD and UGX (Ugandan Shilling)'
+		('Pricing & Sourcing', {
+			'fields': ('price_usd', 'price_ugx', 'old_price', 'sourcing_cost_usd', 'vendor_sku'),
+			'description': 'Set prices in USD/UGX and track sourcing costs.'
 		}),
 		('Sizes', {
 			'fields': ('sizes',)

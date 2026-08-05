@@ -65,6 +65,19 @@ class Category(models.Model):
 		return self.name
 
 
+class Vendor(models.Model):
+	name = models.CharField(max_length=200)
+	origin_country = models.CharField(max_length=100, help_text='e.g., Turkey, China, UK')
+	contact_person = models.CharField(max_length=200, blank=True)
+	email = models.EmailField(blank=True)
+	whatsapp_number = models.CharField(max_length=20, blank=True)
+	lead_time_days = models.PositiveIntegerField(default=14)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	def __str__(self):
+		return f"{self.name} ({self.origin_country})"
+
+
 class Product(models.Model):
 	name = models.CharField(max_length=200)
 	slug = models.SlugField(max_length=220, unique=True, blank=True)
@@ -73,6 +86,9 @@ class Product(models.Model):
 	price_ugx = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Price in UGX (Ugandan Shilling)')
 	old_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products')
+	vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+	sourcing_cost_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	vendor_sku = models.CharField(max_length=100, blank=True)
 	color = models.CharField(max_length=100, blank=True)
 	stock_quantity = models.PositiveIntegerField(default=1, help_text='Number of units currently available for sale')
 	sizes = models.CharField(
@@ -175,3 +191,23 @@ class ProductReview(models.Model):
 
 	def __str__(self):
 		return f'{self.rating}★ — {self.product.name} ({self.user})'
+
+
+class Shipment(models.Model):
+	STATUS_CHOICES = [
+		('ordered', 'Ordered'),
+		('in_transit', 'In Transit'),
+		('at_customs', 'At Customs'),
+		('received', 'Received in Kampala'),
+	]
+
+	vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+	tracking_number = models.CharField(max_length=100, blank=True)
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ordered')
+	estimated_arrival = models.DateField(null=True, blank=True)
+	notes = models.TextField(blank=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	def __str__(self):
+		return f"Shipment from {self.vendor.name} - {self.status}"

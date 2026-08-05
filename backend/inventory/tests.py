@@ -7,7 +7,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from .category_sorting import infer_category_name
-from .models import Category, Product
+from .models import Category, Product, Shipment, Vendor
 
 
 class InventoryApiSmokeTests(APITestCase):
@@ -111,6 +111,39 @@ class InventoryApiSmokeTests(APITestCase):
 		p.refresh_from_db()
 		self.assertTrue(p.in_stock)
 		self.assertEqual(p.stock_quantity, 4)
+
+	def test_vendor_linked_products_and_shipments_are_supported(self):
+		vendor = Vendor.objects.create(
+			name='Northwind Textiles',
+			origin_country='Turkey',
+			contact_person='Ayla',
+			email='ayla@example.com',
+			whatsapp_number='+256700000000',
+			lead_time_days=7,
+		)
+		product = Product.objects.create(
+			name='Vendor Shirt',
+			description='Ships from vendor',
+			price_usd=Decimal('24.00'),
+			price_ugx=Decimal('88800.00'),
+			category=self.category,
+			vendor=vendor,
+			sourcing_cost_usd=Decimal('10.00'),
+			vendor_sku='NW-001',
+			sizes='32,34',
+			stock_quantity=3,
+		)
+		shipment = Shipment.objects.create(
+			vendor=vendor,
+			tracking_number='TRK-001',
+			status='in_transit',
+		)
+
+		self.assertEqual(product.vendor, vendor)
+		self.assertEqual(product.sourcing_cost_usd, Decimal('10.00'))
+		self.assertEqual(product.vendor_sku, 'NW-001')
+		self.assertEqual(shipment.vendor, vendor)
+		self.assertEqual(shipment.status, 'in_transit')
 
 	def test_category_sorting_recognizes_new_accessory_categories(self):
 		self.assertEqual(infer_category_name('Red Leather Purse'), 'Purses')
