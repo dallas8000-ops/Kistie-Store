@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -97,13 +98,13 @@ elif DEBUG:
     )
 elif is_hosted and _django_hosted_build_command_running():
     # Hosted build steps run before runtime secrets are always available.
-    SECRET_KEY = 'hosted-build-phase-only-not-used-at-runtime'
+    SECRET_KEY = secrets.token_urlsafe(64)
 else:
     raise ImproperlyConfigured(
         'Set DJANGO_SECRET_KEY when DEBUG=False (production / staging). '
         'On Railway, add DJANGO_SECRET_KEY to the web service environment.'
     )
-enable_admin_default = 'False' if is_hosted else 'True'
+enable_admin_default = 'True' if _django_tests_running() else ('False' if is_hosted else 'True')
 ENABLE_ADMIN = os.environ.get('DJANGO_ENABLE_ADMIN', enable_admin_default).lower() in ('1', 'true', 'yes')
 
 allowed_hosts_raw = (

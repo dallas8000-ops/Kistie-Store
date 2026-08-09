@@ -5,7 +5,7 @@ WHAT YOU NEED
 -------------
   - Python 3.12 recommended (matches CI)
   - pip
-  - Node.js 18+ and npm — only if you want the experimental React frontend (frontend folder)
+   - Node.js 18+ and npm — only if you want the optional React frontend client (frontend folder)
 
 SETUP (DJANGO STORE — MAIN APP)
 -------------------------------
@@ -47,9 +47,9 @@ Optional: create an admin login (staff features):
 
 ADMIN is available only when ENABLE_ADMIN/DJANGO_ENABLE_ADMIN allows it locally.
 
-OPTIONAL — REACT + VITE (frontend experiments)
-----------------------------------------------
-The live customer storefront is Django. The frontend folder is a separate dev shell.
+OPTIONAL — REACT + VITE (frontend client)
+-----------------------------------------
+The live customer storefront is Django. The frontend folder is an optional client shell for alternate UX and API tests.
 
 Open a SECOND terminal:
 

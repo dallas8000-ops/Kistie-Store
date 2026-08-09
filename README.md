@@ -17,11 +17,11 @@
 
 **Shoppers:** the storefront is one **Shop** page (`/shop/`). Opening `/` sends visitors straight there. Everything you browse — filters (category, price), EU sizing, currency & payment choices, product quick-view modal, add to cart — lives in that single Shop template (`core/shop.html`). Then cart → checkout, auth, contact. There is no separate "catalog" or "inventory" screen in the UI; former URLs only redirect for old bookmarks (see note below).
 
-Payments are confirmed by staff in the real world; order status is updated in Django admin when admin is enabled (typical for a boutique + East Africa payment mix).
+Online checkout supports Pesapal gateway redirect for automated payment handoff, while MTN/Airtel/WorldRemit remain available as guided payment options where staff may verify receipt based on merchant workflow.
 
 **Operations:** custom-theme Django admin (when enabled), staff dashboard (`/staff/dashboard/`), audit log for superusers, CSRF + login throttling, public-read / staff-only-write JSON API (REST routes live under `/api/inventory/` as a URL prefix only — not a second storefront).
 
-**Why this stack:** Django SSR for the live path (SEO, sessions, security); React + Vite in `frontend/` for experiments/future pages; DRF exposes JSON for integrations.
+**Why this stack:** Django SSR for the live path (SEO, sessions, security); DRF exposes JSON for integrations; optional React + Vite client exists for alternate UX and API testing.
 
 ---
 
@@ -62,7 +62,7 @@ Payments are confirmed by staff in the real world; order status is updated in Dj
 
 | Area | Path | Notes |
 |---|---|---|
-| Inventory API | `/api/inventory/…` | DRF: `products/`, `categories/`, `pay/checkout/` (stub). URL prefix only — not a second storefront UI |
+| Inventory API | `/api/inventory/…` | DRF: `products/`, `categories/`, `pay/checkout/` (Pesapal gateway handoff endpoint). URL prefix only — not a second storefront UI |
 | Chat (AI assistant) | `POST /api/chat/` | Shopping assistant used by the Shop page |
 | Size recommendation | `POST /api/size-recommend/` | Quick-view / sizing guidance |
 | Fit recommendation | `POST /api/fit-recommend/` | Product-specific fit guidance, return risk, and bundle suggestions |
@@ -82,10 +82,10 @@ Paths below are from the repository root (the same layout CI and Railway use).
 
 - **`requirements.txt`** — Python dependencies. Install with `pip install -r requirements.txt` from the repo root, then run Django commands from `backend/` (`python manage.py …`).
 - **`backend/`** — Django project: `manage.py`; `core/` (settings, root `urls.py`, middleware, templates under `core/templates/core/`); `inventory/` (product models + DRF, mounted at `/api/inventory/`); `cart/`; `pages/` (e.g. contact-inquiry model).
-- **`frontend/`** — Vite + React. Used for experiments / future SPA work; the production storefront HTML is rendered by Django, not this bundle. Optional: `npm install`, `npm run dev` (Vite dev server, typically port 5173), `npm run demo` (Playwright smoke tests).
+- **`frontend/`** — Vite + React client for alternate UX and API smoke/demo flows. Optional: `npm install`, `npm run dev` (Vite dev server, typically port 5173), `npm run demo` (Playwright smoke tests).
 - **`payments/`** — Node service for Pesapal redirect handling.
 - **`scripts/`** — `capture_screenshots.py`; Windows dev helper `start-local.ps1` (Django first, then Vite).
-- **`docs/`** — `demo-presentation.html`, Capstone deliverable scaffold.
+- **`docs/`** — deployment, demo, and operating documentation.
 - **`.github/workflows/ci.yml`** — installs root `requirements.txt`, then `cd backend && python manage.py test` (Python 3.12).
 - **`railway.toml`** — Railway service config (Gunicorn `--chdir backend`, build that runs `collectstatic`, `migrate`, `seed_inventory_if_empty`, and `link_static_images_to_products`).
 

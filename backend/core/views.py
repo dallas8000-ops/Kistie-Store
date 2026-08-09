@@ -1741,7 +1741,9 @@ from django.views.decorators.csrf import csrf_exempt
 def pesapal_ipn_callback(request):
     """Internal webhook: the Node payments service calls this after a Pesapal IPN."""
     import os
-    expected_key = os.environ.get('INTERNAL_WEBHOOK_KEY', 'dev-internal-key')
+    expected_key = os.environ.get('INTERNAL_WEBHOOK_KEY', '').strip()
+    if not expected_key:
+        return JsonResponse({'error': 'Webhook integration is not configured.'}, status=503)
     key = request.headers.get('X-Internal-Key', '')
     if key != expected_key:
         return JsonResponse({'error': 'Forbidden'}, status=403)

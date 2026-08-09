@@ -1,4 +1,4 @@
-# Ecommerce Capstone Planning Document
+# Ecommerce Product Planning Document
 
 ## Project Name
 East Africa Ecommerce Platform
@@ -10,7 +10,7 @@ East Africa Ecommerce Platform is a full-stack ecommerce application focused on 
 Small fashion businesses and women-led retail brands need a storefront that is easier to manage than social-media-only selling and more region-aware than generic ecommerce templates. This project addresses that gap by providing a product catalog, cart flow, currency-aware pricing, and an admin-managed inventory workflow that can be extended with African payment providers.
 
 ## Project Goal
-Build a polished capstone ecommerce platform where shoppers can browse products, add items to cart, view totals in supported currencies, choose a payment method, and complete a scalable checkout flow while admins securely manage products and media.
+Build a polished ecommerce platform where shoppers can browse products, add items to cart, view totals in supported currencies, choose a payment method, and complete a scalable checkout flow while admins securely manage products and media.
 
 ## Target Audience
 - Women shoppers across East Africa
@@ -20,14 +20,14 @@ Build a polished capstone ecommerce platform where shoppers can browse products,
 ## Business Value
 - Gives local fashion sellers a modern digital storefront
 - Supports region-aware shopping through currency conversion and payment expansion
-- Demonstrates a realistic full-stack commerce workflow for capstone review
+- Demonstrates a realistic full-stack commerce workflow for retail operations
 
 ## Core Objectives
 - Deliver a working full-stack shopping experience
 - Keep inventory and catalog data controlled through the database and admin panel
 - Provide a responsive and branded customer experience
-- Support capstone documentation, planning, and delivery tracking
-- Leave a clear path for real payment integration and customer accounts
+- Support product documentation, planning, and delivery tracking
+- Keep payment integrations modular for provider expansion
 
 ## In Scope
 - Product catalog backed by database records
@@ -123,9 +123,9 @@ Build a polished capstone ecommerce platform where shoppers can browse products,
 - As an admin, I want deleted products removed from the customer catalog so that customers only see active items.
 
 ### QA, Documentation, And Submission
-- As a capstone student, I want clear documentation so that reviewers understand the project scope and architecture.
-- As a capstone student, I want a task board with clear progress states so that work is easy to track and present.
-- As a capstone student, I want final QA and demo assets so that the project is ready for submission.
+- As a product owner, I want clear documentation so that stakeholders understand project scope and architecture.
+- As a product owner, I want a task board with clear progress states so work is easy to track and review.
+- As a delivery team, we want final QA and demo assets so releases are ready for handoff.
 
 ## Functional Requirements
 - The system must display products from database records, not loose image files.
@@ -144,7 +144,7 @@ Build a polished capstone ecommerce platform where shoppers can browse products,
 ## Success Criteria
 - A shopper can browse, add to cart, update quantities, and view converted totals.
 - An admin can manage catalog inventory through Django admin.
-- Checkout captures orders with a clear admin-verification payment workflow.
+- Checkout captures orders with automated Pesapal gateway handoff plus clear status tracking.
 - Authentication exists for shopper accounts.
 - Documentation, Trello tracking, and final QA artifacts are complete.
 
@@ -157,12 +157,12 @@ Build a polished capstone ecommerce platform where shoppers can browse products,
 - Admin Inventory Management
 - Catalog Experience
 - Inventory Shopping Flow
-- Order Capture And Manual Payment Verification
+- Order Capture And Payment Processing
 - Responsive QA
 
 ### Move To Done
 - Submission Packaging
-- Capstone Presentation Assets
+- Presentation Assets
 - README And Project Documentation
 - Release Validation Snapshot
 - Payment Sandbox Integration
@@ -191,7 +191,7 @@ Checklist:
 - In Progress
 - Review And QA
 - Done
-- Capstone Assets
+- Demo Assets
 
 ## Trello Cards And Checklists
 
@@ -251,14 +251,14 @@ Checklist:
 - Attach cart behavior to authenticated user when available
 - Test invalid login and success login flows
 
-### Card: Order Capture And Manual Payment Verification
+### Card: Order Capture And Payment Processing
 Checklist:
 - Capture checkout form into Order and OrderItem records
 - Generate order reference for shopper confirmation
-- Show payment instructions on checkout success page
+- Initiate Pesapal gateway handoff from checkout when selected
 - Show initial Pending payment status to shopper
-- Confirm admin can change status to Payment confirmed
-- Document manual verification workflow in README
+- Confirm callback updates status to Payment confirmed or Payment failed
+- Document automated and method-specific payment flows in README
 
 ### Card: Release Validation Snapshot
 Checklist:
@@ -324,7 +324,7 @@ Checklist:
 - Link planning document from README
 - Confirm local setup instructions are current
 
-### Card: Capstone Presentation Assets
+### Card: Presentation Assets
 Checklist:
 - Capture screenshots of key pages
 - Prepare short demo walkthrough outline
@@ -344,17 +344,17 @@ Checklist:
 - Admin Inventory Management
 - Shopper Authentication
 - Communication And Notifications
-- Order Capture And Manual Payment Verification
+- Order Capture And Payment Processing
 - Payment Sandbox Integration
 - Responsive QA
 - README And Project Documentation
-- Capstone Presentation Assets
+- Presentation Assets
 - Release Validation Snapshot
 - Submission Packaging
 
 ## Priority Order — All Delivered
 1. ✓ Submission Packaging
-2. ✓ Capstone Presentation Assets
+2. ✓ Presentation Assets
 3. ✓ README And Project Documentation
 4. ✓ Release Validation Snapshot
 5. ✓ Payment Sandbox Integration
@@ -374,7 +374,7 @@ Checklist:
 - Auth
 - QA
 - Documentation
-- Capstone
+- Delivery
 
 ## Weekly Tracking Format
 
@@ -395,5 +395,5 @@ Checklist:
 4. Apply labels for Frontend, Backend, Payments, QA, or Documentation.
 5. Use the Priority Order section to decide what moves from Backlog into Ready Next and In Progress.
 
-## Short Capstone Delivery Narrative
-This capstone delivers a complete full-stack ecommerce platform. Shoppers can browse real products, create accounts, manage a cart, view prices in multiple currencies, and complete checkout with an order reference and manual payment verification flow. Admins manage inventory, confirm payments, and receive contact inquiries via email. Responsive QA is complete across all storefront pages. All planned cards are done. The project is submitted.
+## Short Delivery Narrative
+This project delivers a complete full-stack ecommerce platform. Shoppers can browse real products, create accounts, manage a cart, view prices in multiple currencies, and complete checkout with an order reference and integrated payment handoff. Admins manage inventory, monitor payment status updates, and receive contact inquiries via email. Responsive QA is complete across all storefront pages. All planned cards are done.

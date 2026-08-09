@@ -1,11 +1,31 @@
 // Node.js Express server for payment integrations
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+const path = require('node:path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 
 const app = express();
-app.use(cors());
+app.disable('x-powered-by');
+
+const allowedOrigins = new Set(
+  (process.env.PAYMENTS_ALLOWED_ORIGINS || 'http://127.0.0.1:8000,http://localhost:8000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS blocked: origin is not allowed'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Internal-Key'],
+}));
 app.use(express.json());
 
 // ── Pesapal v3 configuration ──────────────────────────────────────────────────
@@ -18,7 +38,11 @@ const CONSUMER_KEY    = process.env.PESAPAL_CONSUMER_KEY;
 const CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET;
 const DJANGO_BASE     = process.env.DJANGO_BASE || 'http://127.0.0.1:8000';
 const IPN_URL         = process.env.IPN_URL || 'http://localhost:5000/api/pay/ipn';
-const INTERNAL_KEY    = process.env.INTERNAL_WEBHOOK_KEY || 'dev-internal-key';
+const INTERNAL_KEY    = process.env.INTERNAL_WEBHOOK_KEY;
+
+if (!INTERNAL_KEY) {
+  throw new Error('INTERNAL_WEBHOOK_KEY must be set before starting payments service.');
+}
 
 // ── Pesapal helpers ───────────────────────────────────────────────────────────
 async function getPesapalToken() {
@@ -142,15 +166,15 @@ app.post('/api/pay/ipn', async (req, res) => {
   }
 });
 
-// ── Generic checkout stub (React frontend uses this) ─────────────────────────
+// ── Generic checkout endpoint (optional frontend client can call this) ───────
 app.post('/api/pay/checkout', (req, res) => {
   res.json({
     message:
-      'Placeholder: add a third-party gateway here if required. Live flow uses MoMo / bank / WorldRemit with staff verification in Django admin.',
+      'Use /api/pay/pesapal for live gateway redirect. Other payment rails remain method-specific and can be enabled as separate integrations.',
   });
 });
 
-// ── Other provider stubs (wired up in future sprints) ────────────────────────
+// ── Additional provider endpoints (reserved for future integrations) ─────────
 app.post('/api/pay/mtn',    (_req, res) => res.json({ message: 'MTN Mobile Money integration coming soon.' }));
 app.post('/api/pay/airtel', (_req, res) => res.json({ message: 'Airtel Money integration coming soon.' }));
 app.post('/api/pay/daraja', (_req, res) => res.json({ message: 'Daraja (M-Pesa) integration coming soon.' }));

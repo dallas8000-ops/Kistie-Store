@@ -2281,7 +2281,7 @@
   "model": "pages.contactinquiry",
   "pk": 1,
   "fields": {
-    "name": "Capstone Demo Tester",
+    "name": "Store Demo Tester",
     "email": "demo@example.com",
     "subject": "Presentation inquiry test",
     "message": "Testing the new storefront contact workflow from the home page.",
