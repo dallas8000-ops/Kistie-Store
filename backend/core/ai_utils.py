@@ -3,8 +3,10 @@ Lightweight AI abstraction for Kistie Store.
 Supports OpenAI-compatible endpoints and Google Gemini via direct HTTP (no extra packages needed).
 Set AI_PROVIDER='openai' or 'gemini' in settings / .env.
 """
+import json
 import logging
-from typing import Optional
+import re
+from typing import Any, Optional
 
 import requests as _http
 from django.conf import settings
@@ -99,6 +101,137 @@ def chat_complete(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Option
     return result
 
 
+def ai_configured() -> bool:
+    """True when at least one LLM provider key is set."""
+    return bool(getattr(settings, 'OPENAI_API_KEY', '') or getattr(settings, 'GEMINI_API_KEY', ''))
+
+
+def fit_recommender_uses_ai() -> bool:
+    """Use LLM fit copy when explicitly enabled or when keys exist (default-on)."""
+    flag = getattr(settings, 'FIT_RECOMMENDER_USE_AI', None)
+    if flag is not None:
+        return bool(flag)
+    return ai_configured()
+
+
+def _parse_json_object(raw: str) -> dict[str, Any] | None:
+    if not raw:
+        return None
+    cleaned = raw.strip()
+    if cleaned.startswith('```'):
+        cleaned = re.sub(r'^```(?:json)?\s*|\s*```$', '', cleaned, flags=re.I)
+    try:
+        data = json.loads(cleaned)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def parse_measurements_from_text(text: str) -> dict[str, float] | None:
+    """
+    Extract bust/waist/hips (cm) from natural language via LLM.
+    Returns {'bust': 90.0, 'waist': 70.0, 'hips': 98.0} or None.
+    """
+    if not ai_configured():
+        return None
+
+    prompt = (
+        'Extract body measurements in centimeters from this shopper message.\n'
+        'Reply with JSON only, no markdown:\n'
+        '{"bust": 90, "waist": 70, "hips": 98}\n'
+        'Use null for any measurement not stated. If none are present, reply: {"bust": null, "waist": null, "hips": null}\n\n'
+        f'Message: {text[:500]}'
+    )
+    result = chat_complete([{'role': 'user', 'content': prompt}], max_tokens=80)
+    data = _parse_json_object(result or '')
+    if not data:
+        return None
+
+    parsed: dict[str, float] = {}
+    for key in ('bust', 'waist', 'hips'):
+        value = data.get(key)
+        if value is None or value == '':
+            continue
+        try:
+            parsed[key] = float(value)
+        except (TypeError, ValueError):
+            continue
+
+    if len(parsed) < 3:
+        return None
+    return parsed
+
+
+def enhance_size_recommendation(bust: float, waist: float, hips: float, base: dict) -> str:
+    """LLM shopper-friendly sizing note; falls back to the rule-based note."""
+    base_note = base.get('note', '')
+    if not ai_configured():
+        return base_note
+
+    prompt = (
+        'You are a sizing assistant for Kistie Store (EU sizes 32–54, women\'s fashion).\n'
+        'Write 2 short sentences for the shopper. Include the recommended EU size and practical fit advice.\n'
+        'Do not invent a different size — use the one provided.\n\n'
+        f'Measurements (cm): bust {bust}, waist {waist}, hips {hips}\n'
+        f'Recommended EU size: {base.get("size")}\n'
+        f'Baseline note: {base_note}'
+    )
+    result = chat_complete([{'role': 'user', 'content': prompt}], max_tokens=120)
+    return result.strip() if result else base_note
+
+
+def generate_demand_forecast_insights(forecasts: list[dict]) -> str:
+    """
+    LLM reorder guidance for staff from computed demand forecast rows.
+    Each row: product, daily_rate, days_left, urgent.
+    """
+    if not forecasts or not ai_configured():
+        return ''
+
+    lines = []
+    for row in forecasts[:12]:
+        product = row['product']
+        lines.append(
+            f"- {product.name} ({product.category.name}): stock {product.stock_quantity}, "
+            f"{row['daily_rate']}/day, ~{row['days_left']} days left"
+            + (' [URGENT]' if row.get('urgent') else '')
+        )
+
+    prompt = (
+        'You are an inventory analyst for Kistie Store, a Kampala fashion boutique.\n'
+        'Given these demand forecasts (90-day sales velocity), write 3–5 bullet points for staff:\n'
+        'prioritize reorders, flag urgent SKUs, and note any category patterns.\n'
+        'Be concise and actionable.\n\n'
+        + '\n'.join(lines)
+    )
+    result = chat_complete([{'role': 'user', 'content': prompt}], max_tokens=280)
+    return result.strip() if result else ''
+
+
+def _classify_inquiry_keywords(subject: str, message: str) -> str:
+    text = f'{subject} {message}'.lower()
+    if any(token in text for token in ('bulk', 'wholesale', 'large order', 'many pieces', 'corporate')):
+        return 'bulk_order'
+    if any(token in text for token in ('delivery', 'shipping', 'dispatch', 'courier', 'track')):
+        return 'delivery'
+    if any(token in text for token in ('complaint', 'refund', 'return', 'damaged', 'wrong size', ' unhappy')):
+        return 'complaint'
+    return 'general'
+
+
+def _analyze_sentiment_keywords(text: str) -> str:
+    lowered = text.lower()
+    negative = ('bad', 'poor', 'terrible', 'disappoint', 'wrong', 'small', 'large', 'return', 'refund')
+    positive = ('love', 'great', 'perfect', 'beautiful', 'recommend', 'excellent', 'amazing', 'happy')
+    neg_hits = sum(1 for token in negative if token in lowered)
+    pos_hits = sum(1 for token in positive if token in lowered)
+    if pos_hits > neg_hits:
+        return 'positive'
+    if neg_hits > pos_hits:
+        return 'negative'
+    return 'neutral'
+
+
 def classify_inquiry(subject: str, message: str) -> str:
     """Return one of: bulk_order | delivery | complaint | general."""
     prompt = (
@@ -115,7 +248,7 @@ def classify_inquiry(subject: str, message: str) -> str:
         tag = result.strip().lower().split()[0]
         if tag in ('bulk_order', 'delivery', 'complaint', 'general'):
             return tag
-    return 'general'
+    return _classify_inquiry_keywords(subject, message)
 
 
 def analyze_sentiment(text: str) -> str:
@@ -136,7 +269,7 @@ def analyze_sentiment(text: str) -> str:
         tag = result.strip().lower().split()[0]
         if tag in ('positive', 'negative', 'neutral'):
             return tag
-    return 'neutral'
+    return _analyze_sentiment_keywords(text)
 
 
 def generate_product_description(name: str, category: str, color: str) -> dict:
@@ -167,26 +300,26 @@ def generate_product_description(name: str, category: str, color: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Size recommendation (rule-based — no AI needed, no extra packages)
+# Size recommendation — EU table for accuracy, LLM for shopper-facing copy
 # EU women's standard measurements (bust / waist / hips in cm)
 # ---------------------------------------------------------------------------
 _EU_SIZE_TABLE = [
-    ('32', 72, 56, 80),
-    ('34', 76, 60, 84),
-    ('36', 80, 64, 88),
-    ('38', 84, 68, 92),
-    ('40', 88, 72, 96),
-    ('42', 92, 76, 100),
-    ('44', 96, 80, 104),
-    ('46', 100, 84, 108),
-    ('48', 104, 88, 112),
-    ('50', 108, 92, 116),
-    ('52', 112, 96, 120),
-    ('54', 116, 100, 124),
+    ('32', 76, 58, 84),
+    ('34', 80, 62, 88),
+    ('36', 84, 66, 92),
+    ('38', 88, 70, 96),
+    ('40', 92, 74, 100),
+    ('42', 96, 78, 104),
+    ('44', 100, 82, 108),
+    ('46', 104, 86, 112),
+    ('48', 108, 90, 116),
+    ('50', 112, 94, 120),
+    ('52', 116, 98, 124),
+    ('54', 120, 102, 128),
 ]
 
 
-def recommend_size(bust: float, waist: float, hips: float) -> dict:
+def recommend_size(bust: float, waist: float, hips: float, *, use_ai_note: bool = True) -> dict:
     """
     Map body measurements (cm) to the best-matching EU size.
     Returns {'size': '38', 'note': '...'}.
@@ -200,11 +333,16 @@ def recommend_size(bust: float, waist: float, hips: float) -> dict:
             best_score = score
             best_size = size
 
-    note = (
-        f"Based on bust {bust} cm, waist {waist} cm, hips {hips} cm — "
-        f"EU {best_size} is your closest match. Try one size up if you prefer a relaxed fit."
-    )
-    return {'size': best_size, 'note': note}
+    base = {
+        'size': best_size,
+        'note': (
+            f"Based on bust {bust} cm, waist {waist} cm, hips {hips} cm — "
+            f"EU {best_size} is your closest match. Try one size up if you prefer a relaxed fit."
+        ),
+    }
+    if use_ai_note:
+        base['note'] = enhance_size_recommendation(bust, waist, hips, base)
+    return base
 
 
 def _safe_size_index(size: str) -> int:
@@ -325,7 +463,7 @@ def _fit_bundle_suggestions(product):
 
 
 def _fit_explanation(product, available_sizes: list[str], recommended_size: str, fit_note: str, fit_preference: str, occasion: str) -> str:
-    if not getattr(settings, 'FIT_RECOMMENDER_USE_AI', False):
+    if not fit_recommender_uses_ai():
         return fit_note
 
     prompt = (

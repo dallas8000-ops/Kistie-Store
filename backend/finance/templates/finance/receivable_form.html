@@ -1,0 +1,37 @@
+{% extends 'core/base.html' %}
+{% block title %}New receivable | Finance dashboard{% endblock %}
+{% block content %}
+<div class="container py-4 float-in">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1">Create receivable</h1>
+      <p class="text-muted mb-0">Add a new customer invoice or balance.</p>
+    </div>
+    <div>
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'finance_receivables' %}">Back to receivables</a>
+    </div>
+  </div>
+  <div class="card shadow-sm border-0 p-4">
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="col-md-6">
+            <div class="mb-3">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}
+              <div class="form-text">{{ field.help_text }}</div>
+              {% endif %}
+              {% for error in field.errors %}
+              <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn-info mt-3">Save receivable</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

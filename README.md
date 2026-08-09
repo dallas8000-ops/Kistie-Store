@@ -27,7 +27,8 @@ Payments are confirmed by staff in the real world; order status is updated in Dj
 
 ## Recent updates
 
-- **AI shopping assistant** end-to-end (`/api/chat/` + shop chatbot UI); **size assistance** (quick-view `/api/size-recommend/` + chatbot measurement parsing); contact-inquiry auto-classification; review sentiment on approval; staff demand forecasting; staff AI description generator (`/api/ai/describe/`) for English + Luganda.
+- **AI shopping assistant** end-to-end (`/api/chat/` + shop chatbot UI); **size assistance** (quick-view `/api/size-recommend/` + chatbot measurement parsing); **fit recommendation** (`/api/fit-recommend/`); contact-inquiry auto-classification; review sentiment on approval; staff demand forecasting; staff AI description generator (`/api/ai/describe/`) for English + Luganda.
+- Smart shop search uses optional AI parsing for natural-language queries like color, size, and budget hints.
 - **Windows local dev starter** `scripts/start-local.ps1`: starts Django, waits for `/health/`, then Vite — so the SPA never opens before the API is ready.
 - Vite proxy covers all `/api` (not only `/api/inventory`) for same-origin dev requests; React uses relative `/api/inventory` unless `VITE_API_BASE_URL` overrides it.
 - Dev CORS allows credentialed API calls from `localhost:5173` / `127.0.0.1:5173`; `CSRF_TRUSTED_ORIGINS` includes those origins when `DEBUG=True`.
@@ -64,6 +65,7 @@ Payments are confirmed by staff in the real world; order status is updated in Dj
 | Inventory API | `/api/inventory/…` | DRF: `products/`, `categories/`, `pay/checkout/` (stub). URL prefix only — not a second storefront UI |
 | Chat (AI assistant) | `POST /api/chat/` | Shopping assistant used by the Shop page |
 | Size recommendation | `POST /api/size-recommend/` | Quick-view / sizing guidance |
+| Fit recommendation | `POST /api/fit-recommend/` | Product-specific fit guidance, return risk, and bundle suggestions |
 | Staff AI copy | `POST /api/ai/describe/` | Product description helper (English + Luganda); staff-facing |
 
 ---
@@ -132,6 +134,7 @@ Set these in `backend/.env` (never commit secrets). If keys are missing, AI-assi
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `OPENAI_MODEL` | Override model (default `gpt-4o-mini`) |
 | `GEMINI_MODEL` | Override model (default `gemini-2.0-flash`) |
+| `FIT_RECOMMENDER_USE_AI` | `true` or `false`; controls whether fit guidance uses the AI-generated shopper message when a provider key is available |
 | `SERPAPI_API_KEY` | Optional web/price tooling |
 | `PRICE_SCAN_UGX_RATE` | FX hint for scans (default 3700) |
 | `PRICE_SCAN_SITE_BASE_URL` | Optional base URL for price-scan features |

@@ -15,7 +15,7 @@ from django.contrib import messages
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Avg, Count, Prefetch, Q, Sum
+from django.db.models import Avg, Count, DecimalField, ExpressionWrapper, F, Prefetch, Q, Sum
 from django.http import FileResponse, Http404, HttpResponseRedirect, JsonResponse
 from django.utils.http import urlencode
 from django.shortcuts import get_object_or_404, redirect, render
@@ -27,9 +27,10 @@ from django.views.decorators.http import require_POST
 from cart.models import Cart, CartItem, Order, OrderItem
 from cart.order_tracking import order_timeline, orders_with_timelines
 from core.recently_viewed import record_product_view, recently_viewed_products
-from inventory.models import Category, Product, ProductImage, ProductReview
+from inventory.models import Category, Product, ProductImage, ProductReview, Shipment, Vendor
 from pages.forms import ContactInquiryForm
 from pages.models import ContactInquiry
+from finance.models import AccountPayable, AccountReceivable, Expense, ImportShipment
 
 
 logger = logging.getLogger(__name__)
@@ -863,7 +864,25 @@ def staff_dashboard(request):
     )
     recent_inquiries = ContactInquiry.objects.all()[:10]
     all_products = Product.objects.select_related('category').order_by('name')
+    inventory_total_products = Product.objects.count()
+    inventory_total_categories = Category.objects.count()
+    inventory_total_vendors = Vendor.objects.count()
+    inventory_inbound_shipments = Shipment.objects.filter(status__in=['ordered', 'in_transit']).count()
     demand_forecasts = _compute_demand_forecasts()
+    demand_forecast_insights = _ai_demand_forecast_insights(demand_forecasts)
+
+    finance_total_expenses = Expense.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    finance_open_payables = AccountPayable.objects.filter(status__in=['open', 'partial']).aggregate(
+        total=Sum(
+            ExpressionWrapper(F('amount') - F('amount_paid'), output_field=DecimalField()),
+        )
+    )['total'] or Decimal('0')
+    finance_open_receivables = AccountReceivable.objects.filter(status__in=['open', 'partial']).aggregate(
+        total=Sum(
+            ExpressionWrapper(F('amount') - F('amount_paid'), output_field=DecimalField()),
+        )
+    )['total'] or Decimal('0')
+    finance_inbound_shipments = ImportShipment.objects.filter(status__in=['ordered', 'in_transit']).count()
 
     return render(request, 'core/staff_dashboard.html', {
         'order_counts': order_counts,
@@ -872,7 +891,16 @@ def staff_dashboard(request):
         'low_stock_threshold': low_stock_threshold,
         'recent_inquiries': recent_inquiries,
         'all_products': all_products,
+        'inventory_total_products': inventory_total_products,
+        'inventory_total_categories': inventory_total_categories,
+        'inventory_total_vendors': inventory_total_vendors,
+        'inventory_inbound_shipments': inventory_inbound_shipments,
         'demand_forecasts': demand_forecasts,
+        'demand_forecast_insights': demand_forecast_insights,
+        'finance_total_expenses': finance_total_expenses,
+        'finance_open_payables': finance_open_payables,
+        'finance_open_receivables': finance_open_receivables,
+        'finance_inbound_shipments': finance_inbound_shipments,
     })
 
 
@@ -913,6 +941,18 @@ def _compute_demand_forecasts():
 
     forecasts.sort(key=lambda x: x['days_left'])
     return forecasts[:20]
+
+
+def _ai_demand_forecast_insights(forecasts):
+    """LLM reorder guidance for staff; empty when no forecasts or no AI keys."""
+    if not forecasts:
+        return ''
+    try:
+        from core.ai_utils import generate_demand_forecast_insights
+        return generate_demand_forecast_insights(forecasts)
+    except Exception:
+        logger.exception('Demand forecast AI insights failed')
+        return ''
 
 
 @user_passes_test(lambda u: u.is_superuser)
@@ -1247,7 +1287,18 @@ def catalog(request):
 
 
 def legacy_inventory_redirect(request):
-    """Legacy ``/inventory/`` storefront URL — redirects to canonical ``/shop/``."""
+    """Legacy ``/inventory/`` route.
+
+    - Superusers go to inventory admin list.
+    - Staff users go to the staff dashboard inventory cards.
+    - Shoppers keep the storefront redirect.
+    """
+    if request.user.is_authenticated:
+        if request.user.is_superuser and settings.ENABLE_ADMIN:
+            return HttpResponseRedirect('/admin/inventory/product/')
+        if request.user.is_superuser or request.user.has_perm('core.access_staff_dashboard'):
+            return redirect('staff_dashboard')
+
     path = reverse('shop')
     qs = request.GET.urlencode()
     if qs:
@@ -1779,7 +1830,7 @@ def _extract_compact_measurements(raw):
 
 
 def _extract_measurements_cm(text):
-    """Extract bust/waist/hips values in cm from free text."""
+    """Extract bust/waist/hips values in cm from free text (regex, then optional LLM)."""
     raw = (text or '').lower()
     if not raw:
         return None
@@ -1790,7 +1841,12 @@ def _extract_measurements_cm(text):
         return found
 
     # Fallback: allow compact numeric format like "90 70 98" or "90/70/98".
-    return _extract_compact_measurements(raw)
+    compact = _extract_compact_measurements(raw)
+    if compact:
+        return compact
+
+    from core.ai_utils import parse_measurements_from_text
+    return parse_measurements_from_text(text)
 
 
 def _quick_chat_fallback(user_message):
@@ -1871,10 +1927,10 @@ def _measurement_chat_reply(user_message):
     from core.ai_utils import recommend_size
     rec = recommend_size(bust, waist, hips)
     return JsonResponse({
-        'reply': (
-            f"Recommended EU size: {rec['size']}. {rec['note']} "
+        'reply': rec['note'] if rec.get('note') else (
+            f"Recommended EU size: {rec['size']}. "
             'If you are between sizes, choose one size up for a relaxed fit.'
-        )
+        ),
     })
 
 
@@ -1934,11 +1990,17 @@ def api_chat(request):
 
     messages_payload = _build_chat_messages(history, user_message)
 
+    from core.ai_utils import ai_configured, chat_complete
+
+    if ai_configured():
+        reply = chat_complete(messages_payload, max_tokens=300)
+        if reply:
+            return JsonResponse({'reply': reply})
+
     quick_reply = _quick_chat_fallback(user_message)
     if quick_reply:
         return JsonResponse({'reply': quick_reply})
 
-    from core.ai_utils import chat_complete
     reply = chat_complete(messages_payload, max_tokens=300)
 
     if reply is None:

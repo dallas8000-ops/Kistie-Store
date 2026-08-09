@@ -44,6 +44,7 @@ urlpatterns = [
     path('api/fit-recommend/', views.api_fit_recommend, name='api_fit_recommend'),
     path('api/ai/describe/', views.api_ai_describe, name='api_ai_describe'),
     path('api/inventory/', include('inventory.urls')),
+    path('finance/', include('finance.urls')),
     path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 

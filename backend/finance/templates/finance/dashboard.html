@@ -1,0 +1,202 @@
+{% extends 'core/base.html' %}
+{% block title %}Finance dashboard | Kistie Store{% endblock %}
+{% block content %}
+<div class="container py-4 float-in">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1">Finance dashboard</h1>
+      <p class="text-muted mb-0">Expenses, payables, receivables, and inbound shipment status.</p>
+    </div>
+    <div>
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'staff_dashboard' %}">Back to staff dashboard</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body">
+          <div class="small text-muted text-uppercase">Total expenses</div>
+          <div class="display-6 fw-semibold">{{ finance_total_expenses }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body">
+          <div class="small text-muted text-uppercase">Open payables</div>
+          <div class="display-6 fw-semibold text-warning">{{ finance_open_payables }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body">
+          <div class="small text-muted text-uppercase">Open receivables</div>
+          <div class="display-6 fw-semibold text-info">{{ finance_open_receivables }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body">
+          <div class="small text-muted text-uppercase">Inbound shipments</div>
+          <div class="display-6 fw-semibold">{{ inbound_shipments|length }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body d-flex flex-column justify-content-between">
+          <div>
+            <div class="small text-muted text-uppercase">Expenses</div>
+            <div class="h4 fw-semibold">{{ expense_count }}</div>
+          </div>
+          <a class="btn btn-outline-primary btn-sm mt-3" href="{% url 'finance_expenses' %}">View expense ledger</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body d-flex flex-column justify-content-between">
+          <div>
+            <div class="small text-muted text-uppercase">Payables</div>
+            <div class="h4 fw-semibold">{{ payable_count }}</div>
+          </div>
+          <a class="btn btn-outline-warning btn-sm mt-3" href="{% url 'finance_payables' %}">Review payables</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body d-flex flex-column justify-content-between">
+          <div>
+            <div class="small text-muted text-uppercase">Receivables</div>
+            <div class="h4 fw-semibold">{{ receivable_count }}</div>
+          </div>
+          <a class="btn btn-outline-info btn-sm mt-3" href="{% url 'finance_receivables' %}">Review receivables</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-body d-flex flex-column justify-content-between">
+          <div>
+            <div class="small text-muted text-uppercase">Shipments</div>
+            <div class="h4 fw-semibold">{{ shipment_count }}</div>
+          </div>
+          <a class="btn btn-outline-secondary btn-sm mt-3" href="{% url 'finance_shipments' %}">Track shipments</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+          <h2 class="h5 fw-semibold mb-0">Open payables</h2>
+        </div>
+        <div class="card-body">
+          {% if open_payables %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>Vendor</th><th class="text-end">Balance</th><th class="text-end">Due</th></tr></thead>
+              <tbody>
+                {% for ap in open_payables %}
+                <tr>
+                  <td>{{ ap.vendor_name }}</td>
+                  <td class="text-end">{{ ap.balance_due }}</td>
+                  <td class="text-end">{{ ap.due_date }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted mb-0">No open payables.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+          <h2 class="h5 fw-semibold mb-0">Open receivables</h2>
+        </div>
+        <div class="card-body">
+          {% if open_receivables %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>Customer</th><th class="text-end">Balance</th><th class="text-end">Due</th></tr></thead>
+              <tbody>
+                {% for ar in open_receivables %}
+                <tr>
+                  <td>{{ ar.customer_name }}</td>
+                  <td class="text-end">{{ ar.balance_due }}</td>
+                  <td class="text-end">{{ ar.due_date }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted mb-0">No open receivables.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-3">
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+          <h2 class="h5 fw-semibold mb-0">Inbound shipments</h2>
+        </div>
+        <div class="card-body">
+          {% if inbound_shipments %}
+          <ul class="list-group list-group-flush">
+            {% for shipment in inbound_shipments %}
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ shipment.source_country }}</strong><br>
+                <small class="text-muted">{{ shipment.vendor_name }} · {{ shipment.status }}</small>
+              </div>
+              <span class="badge text-bg-secondary">{{ shipment.order_date }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="text-muted mb-0">No inbound shipments in ordered / in transit status.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100" style="border-radius: 14px;">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+          <h2 class="h5 fw-semibold mb-0">Expense breakdown</h2>
+        </div>
+        <div class="card-body">
+          {% if expense_breakdown %}
+          <ul class="list-group list-group-flush">
+            {% for row in expense_breakdown %}
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span>{{ row.category|capfirst }}</span>
+              <span class="fw-semibold">{{ row.total }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="text-muted mb-0">No expense categories recorded yet.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

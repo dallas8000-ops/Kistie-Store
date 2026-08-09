@@ -179,6 +179,14 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '').strip()
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini').strip()
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash').strip()
+# Fit recommender: unset = auto (on when an AI key exists); true/false to force.
+_fit_ai_raw = os.environ.get('FIT_RECOMMENDER_USE_AI', '').strip().lower()
+if _fit_ai_raw in ('1', 'true', 'yes', 'on'):
+    FIT_RECOMMENDER_USE_AI = True
+elif _fit_ai_raw in ('0', 'false', 'no', 'off'):
+    FIT_RECOMMENDER_USE_AI = False
+else:
+    FIT_RECOMMENDER_USE_AI = None
 # Pesapal handoff: Node payments service URL (local dev default). Set on Railway to your deployed payments base + path.
 PESAPAL_INITIATE_URL = os.environ.get(
     'PESAPAL_INITIATE_URL',
@@ -199,6 +207,7 @@ INSTALLED_APPS = [
     'inventory',
     'cart',
     'pages',
+    'finance',
     'core',
 ]
 

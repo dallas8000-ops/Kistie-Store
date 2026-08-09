@@ -1,0 +1,51 @@
+{% extends 'core/base.html' %}
+{% block title %}Receivables | Finance dashboard{% endblock %}
+{% block content %}
+<div class="container py-4 float-in">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 fw-bold mb-1">Accounts receivable</h1>
+      <p class="text-muted mb-0">Invoices and customer balances waiting for collection.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-info btn-sm" href="{% url 'finance_receivable_create' %}">New receivable</a>
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'finance_dashboard' %}">Back to finance dashboard</a>
+    </div>
+  </div>
+  <div class="card shadow-sm border-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th class="text-end">Amount</th>
+            <th class="text-end">Paid</th>
+            <th class="text-end">Balance</th>
+            <th>Due</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for receivable in receivables %}
+          <tr>
+            <td>{{ receivable.customer_name }}</td>
+            <td class="text-end">{{ receivable.amount }}</td>
+            <td class="text-end">{{ receivable.amount_paid }}</td>
+            <td class="text-end">{{ receivable.balance_due }}</td>
+            <td>{{ receivable.due_date }}</td>
+            <td>{{ receivable.get_status_display }}</td>
+            <td class="text-end text-nowrap">
+              <a class="btn btn-outline-primary btn-sm" href="{% url 'finance_receivable_edit' receivable.id %}">Edit</a>
+              <a class="btn btn-outline-danger btn-sm" href="{% url 'finance_receivable_delete' receivable.id %}">Delete</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-muted">No receivables recorded yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -323,3 +323,98 @@ class AdminSuperuserOnlyMiddlewareTests(TestCase):
         self.client.force_login(self.superuser)
         response = self.client.get('/admin/')
         self.assertEqual(response.status_code, 200)
+
+
+class AiUtilsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(name='Tops', description='')
+
+    def test_parse_measurements_from_text_uses_llm(self):
+        from unittest.mock import patch
+        from core.ai_utils import parse_measurements_from_text
+
+        with patch('core.ai_utils.chat_complete', return_value='{"bust": 88, "waist": 68, "hips": 96}'):
+            with self.settings(OPENAI_API_KEY='test-key'):
+                parsed = parse_measurements_from_text('I am roughly 88 around chest, 68 waist, 96 hips')
+        self.assertEqual(parsed['bust'], 88.0)
+        self.assertEqual(parsed['waist'], 68.0)
+        self.assertEqual(parsed['hips'], 96.0)
+
+    def test_classify_inquiry_keyword_fallback(self):
+        from core.ai_utils import classify_inquiry
+
+        with self.settings(OPENAI_API_KEY='', GEMINI_API_KEY=''):
+            tag = classify_inquiry('Bulk wedding order', 'We need 40 dresses')
+        self.assertEqual(tag, 'bulk_order')
+
+    def test_recommend_size_enhances_note_when_ai_configured(self):
+        from unittest.mock import patch
+        from core.ai_utils import recommend_size
+
+        with patch('core.ai_utils.enhance_size_recommendation', return_value='EU 38 fits you well — try 40 if you prefer room.'):
+            with self.settings(OPENAI_API_KEY='test-key'):
+                result = recommend_size(90, 70, 98)
+        self.assertEqual(result['size'], '38')
+        self.assertIn('EU 38', result['note'])
+
+    def test_recommend_size_eu_mapping_regression_grid(self):
+        from core.ai_utils import recommend_size
+
+        # Lock core baseline behavior so table edits don't silently drift sizes.
+        cases = [
+            ((90, 70, 98), '38'),
+            ((88, 70, 96), '38'),
+            ((92, 74, 100), '40'),
+            ((84, 66, 92), '36'),
+        ]
+
+        for (bust, waist, hips), expected in cases:
+            rec = recommend_size(bust, waist, hips, use_ai_note=False)
+            self.assertEqual(rec['size'], expected)
+
+
+class ChatApiTests(TestCase):
+    def test_chat_prefers_llm_when_configured(self):
+        from unittest.mock import patch
+
+        with patch('core.ai_utils.chat_complete', return_value='Hello from Kistie AI!'):
+            with self.settings(OPENAI_API_KEY='test-key'):
+                response = self.client.post(
+                    reverse('api_chat'),
+                    data=json.dumps({'message': 'hello there'}),
+                    content_type='application/json',
+                )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['reply'], 'Hello from Kistie AI!')
+
+    def test_chat_measurement_parsing_via_llm(self):
+        from unittest.mock import patch
+
+        with patch('core.ai_utils.parse_measurements_from_text', return_value={'bust': 90.0, 'waist': 70.0, 'hips': 98.0}):
+            with patch('core.ai_utils.enhance_size_recommendation', return_value='EU 38 is your best match.'):
+                with self.settings(OPENAI_API_KEY='test-key'):
+                    response = self.client.post(
+                        reverse('api_chat'),
+                        data=json.dumps({'message': 'what size am I? chest ninety waist seventy hips ninety eight'}),
+                        content_type='application/json',
+                    )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('EU 38', response.json()['reply'])
+
+
+class SizeRecommendApiTests(TestCase):
+    def test_size_recommend_returns_enhanced_note(self):
+        from unittest.mock import patch
+
+        with patch('core.ai_utils.enhance_size_recommendation', return_value='Try EU 38 for a classic fit.'):
+            with self.settings(OPENAI_API_KEY='test-key'):
+                response = self.client.post(
+                    reverse('api_size_recommend'),
+                    data=json.dumps({'bust': 90, 'waist': 70, 'hips': 98}),
+                    content_type='application/json',
+                )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['size'], '38')
+        self.assertEqual(payload['note'], 'Try EU 38 for a classic fit.')
