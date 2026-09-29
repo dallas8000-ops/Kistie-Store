@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from cart import stripe_payments
 from cart.models import Cart, CartItem, Order, OrderItem
 from cart.order_tracking import order_timeline, orders_with_timelines
 from core.tasks import send_contact_inquiry_email
@@ -41,6 +42,7 @@ SUPPORTED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 DJANGO_IMAGE_SUFFIX_RE = re.compile(r'^(?P<stem>.+)_[A-Za-z0-9]{7}$')
 SUPPORTED_CURRENCIES = ('USD', 'EUR', 'KES', 'UGX')
 PAYMENT_METHODS = ('mtn', 'airtel', 'worldremit', 'pesapal')
+CARD_PAYMENT_METHOD = 'card'
 INVALID_JSON_ERROR = 'Invalid JSON'
 FALLBACK_RATES = {
     'USD': Decimal('1'),
@@ -533,6 +535,13 @@ def _fetch_live_rates():
         return FALLBACK_RATES, '', 'fallback'
 
 
+def _available_payment_methods():
+    """Card (Stripe Checkout) is offered only when Stripe keys are configured."""
+    if stripe_payments.stripe_enabled():
+        return PAYMENT_METHODS + (CARD_PAYMENT_METHOD,)
+    return PAYMENT_METHODS
+
+
 def _checkout_preferences(request):
     currency = request.GET.get('currency') or request.session.get('currency') or 'USD'
     if currency not in SUPPORTED_CURRENCIES:
@@ -540,7 +549,7 @@ def _checkout_preferences(request):
     request.session['currency'] = currency
 
     payment_method = request.GET.get('payment_method') or request.session.get('payment_method') or 'mtn'
-    if payment_method not in PAYMENT_METHODS:
+    if payment_method not in _available_payment_methods():
         payment_method = 'mtn'
     request.session['payment_method'] = payment_method
 
@@ -1396,7 +1405,7 @@ def _build_shop_page_context(request):
         'currency': checkout['currency'],
         'supported_currencies': SUPPORTED_CURRENCIES,
         'payment_method': checkout['payment_method'],
-        'payment_methods': PAYMENT_METHODS,
+        'payment_methods': _available_payment_methods(),
         'rates_source': checkout['rates_source'],
         'rates_updated': checkout['rates_updated'],
         'rate_display': _format_money(checkout['rate'], checkout['currency']),
@@ -1420,9 +1429,9 @@ def shop(request):
             'currency': 'USD',
             'supported_currencies': SUPPORTED_CURRENCIES,
             'payment_method': (
-                pm if (pm := request.session.get('payment_method', 'mtn')) in PAYMENT_METHODS else 'mtn'
+                pm if (pm := request.session.get('payment_method', 'mtn')) in _available_payment_methods() else 'mtn'
             ),
-            'payment_methods': PAYMENT_METHODS,
+            'payment_methods': _available_payment_methods(),
             'rates_source': 'fallback',
             'rates_updated': '',
             'rate_display': '1.00',
@@ -1517,7 +1526,7 @@ def cart(request):
             'currency': checkout['currency'],
             'supported_currencies': SUPPORTED_CURRENCIES,
             'payment_method': checkout['payment_method'],
-            'payment_methods': PAYMENT_METHODS,
+            'payment_methods': _available_payment_methods(),
             'grand_total_display': _format_money(grand_total, checkout['currency']),
             'rates_source': checkout['rates_source'],
             'rates_updated': checkout['rates_updated'],
@@ -1551,7 +1560,7 @@ def cart(request):
             'currency': 'USD',
             'supported_currencies': SUPPORTED_CURRENCIES,
             'payment_method': 'mtn',
-            'payment_methods': PAYMENT_METHODS,
+            'payment_methods': _available_payment_methods(),
             'grand_total_display': str(grand_total),
             'rates_source': 'fallback',
             'rates_updated': '',
@@ -1659,6 +1668,30 @@ def _try_pesapal_redirect(request, order):
     return None
 
 
+def _try_stripe_redirect(request, order):
+    if order.payment_method != CARD_PAYMENT_METHOD or not stripe_payments.stripe_enabled():
+        return None
+
+    success_url = (
+        request.build_absolute_uri(reverse('stripe_success'))
+        + '?session_id={CHECKOUT_SESSION_ID}'
+    )
+    cancel_url = request.build_absolute_uri(
+        f"{reverse('stripe_cancel')}?{urlencode({'order_ref': order.order_ref})}"
+    )
+    try:
+        session = stripe_payments.create_checkout_session(order, success_url, cancel_url)
+        return redirect(session.url)
+    except Exception as exc:
+        logger.warning('Stripe Checkout failed for %s: %s', order.order_ref, exc)
+        messages.warning(
+            request,
+            'Card payment is temporarily unavailable. '
+            'Your order is saved — please contact us to complete payment.',
+        )
+    return None
+
+
 def _checkout_post(request, cart, cart_items, checkout_prefs, grand_total, context):
     form_data = {
         'name': (request.POST.get('name') or '').strip(),
@@ -1705,6 +1738,10 @@ def _checkout_post(request, cart, cart_items, checkout_prefs, grand_total, conte
     pesapal_response = _try_pesapal_redirect(request, order)
     if pesapal_response is not None:
         return pesapal_response
+
+    stripe_response = _try_stripe_redirect(request, order)
+    if stripe_response is not None:
+        return stripe_response
 
     return _render_checkout_success(
         request,
@@ -1833,6 +1870,58 @@ def pesapal_callback(request):
         None,
         None,
         'Your Pesapal payment is being verified. Your order status will update shortly.',
+    )
+
+
+# ── Stripe Checkout views ──────────────────────────────────────────────────────
+
+
+@csrf_exempt
+@require_POST
+def stripe_webhook(request):
+    """Stripe calls this; the signature check is the authentication."""
+    try:
+        stripe_payments.construct_event(request.body, request.headers.get('Stripe-Signature', ''))
+    except Exception as exc:
+        logger.warning('Rejected Stripe webhook: %s', exc)
+        return JsonResponse({'error': 'Invalid signature'}, status=400)
+    stripe_payments.handle_event(json.loads(request.body))
+    return JsonResponse({'received': True})
+
+
+def stripe_success(request):
+    """Customer returns here from Stripe; confirm from the session in case the webhook is late."""
+    session_id = request.GET.get('session_id', '')
+    order = None
+    if session_id and stripe_payments.stripe_enabled():
+        try:
+            order = stripe_payments.confirm_paid_session(stripe_payments.retrieve_session(session_id))
+        except Exception as exc:
+            logger.warning('Stripe session lookup failed for %s: %s', session_id, exc)
+    if not order:
+        messages.error(request, 'We could not find that payment. Please contact us with your order reference.')
+        return redirect('cart')
+    order.refresh_from_db()
+    if order.status == Order.STATUS_PENDING:
+        instructions = 'Your card payment is being confirmed. Your order status will update shortly.'
+    else:
+        instructions = 'Thank you — your card payment was received.'
+    return _render_checkout_success(request, order, None, None, instructions)
+
+
+def stripe_cancel(request):
+    """Customer left Stripe Checkout without paying; the order stays pending."""
+    order = Order.objects.filter(order_ref=request.GET.get('order_ref', '')).first()
+    if not order:
+        messages.error(request, 'Order not found.')
+        return redirect('cart')
+    return _render_checkout_success(
+        request,
+        order,
+        None,
+        None,
+        'Card payment was not completed. Your order is saved — '
+        'contact us to pay another way or to get a new payment link.',
     )
 
 

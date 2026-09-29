@@ -227,6 +227,10 @@ PESAPAL_INITIATE_URL = os.environ.get(
     'PESAPAL_INITIATE_URL',
     'http://127.0.0.1:5000/api/pay/pesapal',
 ).strip()
+# Stripe Checkout (one-time card payments). Card is offered at checkout only when the secret key is set.
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '').strip()
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '').strip()
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '').strip()
 
 
 # Application definition

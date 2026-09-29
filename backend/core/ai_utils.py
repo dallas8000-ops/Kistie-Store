@@ -15,9 +15,9 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 _OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
-_GEMINI_URL_TPL = (
-    'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}'
-)
+# Key goes in the x-goog-api-key header, never the URL: a URL-embedded key was written
+# to logs verbatim whenever requests raised (HTTPError messages include the full URL).
+_GEMINI_URL_TPL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
 _GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash-lite'
 _RETIRED_GEMINI_MODELS = {'gemini-2.0-flash', 'gemini-2.0-flash-lite'}
 
@@ -89,7 +89,7 @@ def _call_gemini(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optiona
     if not key:
         return None
     model = _configured_gemini_model()
-    url = _GEMINI_URL_TPL.format(model=model, key=key)
+    url = _GEMINI_URL_TPL.format(model=model)
 
     # Convert OpenAI-style messages to Gemini contents format.
     # Gemini uses 'user'/'model' roles; system prompt is prepended to first user turn.
@@ -114,6 +114,7 @@ def _call_gemini(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optiona
     try:
         resp = _http.post(
             url,
+            headers={'x-goog-api-key': key, 'Content-Type': 'application/json'},
             json={
                 'contents': contents,
                 'generationConfig': {'maxOutputTokens': max_tokens},
