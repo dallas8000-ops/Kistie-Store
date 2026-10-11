@@ -4,6 +4,7 @@ import logging
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db import transaction
 from django.urls import reverse
 
 from .models import Order
@@ -153,7 +154,7 @@ def _notify_staff_email(order, previous_status, label, track_url):
         logger.exception('Failed to send staff order alert for %s', order.order_ref)
 
 
-def notify_order_status_changed(order, previous_status):
+def send_order_status_notifications(order, previous_status):
     """Email customer (if possible) and staff with WhatsApp deep links."""
     if previous_status == order.status:
         return
@@ -163,3 +164,26 @@ def notify_order_status_changed(order, previous_status):
 
     _notify_customer_email(order, previous_status, label, track_url)
     _notify_staff_email(order, previous_status, label, track_url)
+
+
+def notify_order_status_changed(order, previous_status):
+    """Queue order status notifications, with sync fallback if Redis is unavailable."""
+    if previous_status == order.status:
+        return
+    if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+        send_order_status_notifications(order, previous_status)
+        return
+
+    def _enqueue():
+        try:
+            from .tasks import send_order_status_notification_email
+
+            send_order_status_notification_email.delay(order.pk, previous_status)
+        except Exception:
+            logger.exception(
+                'Failed to queue order status notification for %s; sending synchronously',
+                order.order_ref,
+            )
+            send_order_status_notifications(order, previous_status)
+
+    transaction.on_commit(_enqueue)

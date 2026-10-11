@@ -21,6 +21,17 @@ import dj_database_url
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
+sentry_sdk.init(
+    dsn=os.environ.get("SENTRY_DSN", ""),
+    integrations=[DjangoIntegration()],
+    traces_sample_rate=0.1,     # perf monitoring sample rate
+    send_default_pii=False,     # don't leak user PII into Sentry — matches your security posture
+    environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+)
+
 
 def _django_tests_running():
     """True when `manage.py test` runs (HTTP client must not hit SECURE_SSL_REDIRECT)."""
@@ -168,6 +179,26 @@ SERPAPI_API_KEY = os.environ.get('SERPAPI_API_KEY', '').strip()
 PRICE_SCAN_UGX_RATE = os.environ.get('PRICE_SCAN_UGX_RATE', '3700').strip()
 PRICE_SCAN_SITE_BASE_URL = os.environ.get('PRICE_SCAN_SITE_BASE_URL', '').strip()
 
+REDIS_URL = os.environ.get('REDIS_URL', '').strip()
+CELERY_BROKER_URL = os.environ.get(
+    'CELERY_BROKER_URL',
+    REDIS_URL or 'redis://localhost:6379/0',
+).strip()
+CELERY_RESULT_BACKEND = os.environ.get(
+    'CELERY_RESULT_BACKEND',
+    REDIS_URL or CELERY_BROKER_URL,
+).strip()
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_ALWAYS_EAGER = (
+    os.environ.get('CELERY_TASK_ALWAYS_EAGER', '').lower() in ('1', 'true', 'yes', 'on')
+    or DEBUG
+    or _django_tests_running()
+)
+CELERY_TASK_EAGER_PROPAGATES = True
+
 # AI features — set either key (or both) to enable. AI_PROVIDER controls which is used first.
 _raw_ai_provider = os.environ.get('AI_PROVIDER', 'openai').strip().lower()
 if _raw_ai_provider.startswith('gemini'):
@@ -178,8 +209,11 @@ else:
     AI_PROVIDER = _raw_ai_provider
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '').strip()
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
+if _django_tests_running():
+    OPENAI_API_KEY = ''
+    GEMINI_API_KEY = ''
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini').strip()
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash').strip()
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash-lite').strip()
 # Fit recommender: unset = auto (on when an AI key exists); true/false to force.
 _fit_ai_raw = os.environ.get('FIT_RECOMMENDER_USE_AI', '').strip().lower()
 if _fit_ai_raw in ('1', 'true', 'yes', 'on'):

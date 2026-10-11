@@ -15,6 +15,7 @@ if settings.ENABLE_ADMIN:
 
 urlpatterns = [
     path('health/', views.health, name='health'),
+    path('staff/ai-readiness/', views.ai_readiness, name='ai_readiness'),
     path('', views.home, name='home'),
     path('shop/', views.shop, name='shop'),
     path('shop/product/<slug:slug>/', views.product_detail, name='product_detail'),

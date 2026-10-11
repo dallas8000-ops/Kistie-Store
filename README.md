@@ -63,6 +63,7 @@ Online checkout supports Pesapal gateway redirect for automated payment handoff,
 | Area | Path | Notes |
 |---|---|---|
 | Inventory API | `/api/inventory/…` | DRF: `products/`, `categories/`, `pay/checkout/` (Pesapal gateway handoff endpoint). URL prefix only — not a second storefront UI |
+| AI readiness | `GET /staff/ai-readiness/` | Staff permission required; makes one minimal provider call and returns only configuration/responding metadata (HTTP 503 when unavailable) |
 | Chat (AI assistant) | `POST /api/chat/` | Shopping assistant used by the Shop page |
 | Size recommendation | `POST /api/size-recommend/` | Quick-view / sizing guidance |
 | Fit recommendation | `POST /api/fit-recommend/` | Product-specific fit guidance, return risk, and bundle suggestions |
@@ -72,7 +73,7 @@ Online checkout supports Pesapal gateway redirect for automated payment handoff,
 
 ## Tech stack
 
-Python · Django 5.2 · Django REST Framework · PostgreSQL (prod) / SQLite (dev) · Gunicorn · WhiteNoise · Railway · GitHub Actions · Bootstrap 5 · Bootstrap Icons · custom CSS (gradients + branded buttons) · Pillow · requests (HTTP integrations) · optional OpenAI / Google Gemini (AI features via env-configured keys)
+Python · Django 5.2 · Django REST Framework · PostgreSQL (prod) / SQLite (dev) · Celery · Redis · Gunicorn · WhiteNoise · Railway · GitHub Actions · Bootstrap 5 · Bootstrap Icons · custom CSS (gradients + branded buttons) · Pillow · requests (HTTP integrations) · optional OpenAI / Google Gemini (AI features via env-configured keys)
 
 ---
 
@@ -88,6 +89,7 @@ Paths below are from the repository root (the same layout CI and Railway use).
 - **`docs/`** — deployment, demo, and operating documentation.
 - **`.github/workflows/ci.yml`** — installs root `requirements.txt`, then `cd backend && python manage.py test` (Python 3.12).
 - **`railway.toml`** — Railway service config (Gunicorn `--chdir backend`, build that runs `collectstatic`, `migrate`, `seed_inventory_if_empty`, and `link_static_images_to_products`).
+- **`Procfile`** — process commands for the Django web service and Celery worker.
 
 ---
 
@@ -133,11 +135,13 @@ Set these in `backend/.env` (never commit secrets). If keys are missing, AI-assi
 | `OPENAI_API_KEY` | OpenAI API key |
 | `GEMINI_API_KEY` | Google Gemini API key |
 | `OPENAI_MODEL` | Override model (default `gpt-4o-mini`) |
-| `GEMINI_MODEL` | Override model (default `gemini-2.0-flash`) |
+| `GEMINI_MODEL` | Override model (default `gemini-3.5-flash-lite`; retired Gemini 2.0 model IDs fall back to this default) |
 | `FIT_RECOMMENDER_USE_AI` | `true` or `false`; controls whether fit guidance uses the AI-generated shopper message when a provider key is available |
 | `SERPAPI_API_KEY` | Optional web/price tooling |
 | `PRICE_SCAN_UGX_RATE` | FX hint for scans (default 3700) |
 | `PRICE_SCAN_SITE_BASE_URL` | Optional base URL for price-scan features |
+
+To verify AI after deployment, sign in with a user who has the staff-dashboard permission and open `/staff/ai-readiness/`. Each check makes one short provider request and may incur a small API charge, so do not configure it as a frequent uptime monitor.
 
 Inventory helpers (run from `backend/`): `load_sample_inventory`, `seed_inventory_if_empty`, `link_static_images_to_products`, `import_web_comparison_prices`, `scan_inventory_prices`, `load_static_images_inventory` — use `--help` per command.
 
@@ -158,20 +162,24 @@ Use `backend/.env` locally (copy from `backend/.env.example`). Never commit `.en
 
 On Railway, add the same variables under the web service's environment (don't paste secrets into the repo). Restart after changing env vars; the Contact page's console-only banner disappears when SMTP is active.
 
+Outbound contact emails and order status/staff alerts are Celery tasks. In local `DEBUG=True`, tasks run eagerly so email flows work without starting Redis. In production, add a Railway Redis plugin and run the `worker` process from the `Procfile` so these emails are handled by the background worker. If the queue is unavailable, the web process logs the queue failure and falls back to synchronous delivery.
+
 ---
 
 ## Deploy (Railway)
 
-Railway runs the Django web service from `railway.toml` (Gunicorn `--chdir backend`) with a managed PostgreSQL plugin.
+Railway runs the Django web service from `railway.toml` (Gunicorn `--chdir backend`) with managed PostgreSQL and Redis plugins.
 
 1. Add the **PostgreSQL** plugin → Railway sets `DATABASE_URL` automatically.
-2. Set environment variables on the web service:
+2. Add the **Redis** plugin → Railway sets `REDIS_URL` automatically; Celery uses it as broker/result backend.
+3. Set environment variables on the web service:
    - `DJANGO_SECRET_KEY` — long random secret
    - `DJANGO_DEBUG=false`
    - `ALLOWED_HOSTS` — include your Railway hostname (and any custom domain), comma- or space-separated
    - `CSRF_TRUSTED_ORIGINS` — full origins with scheme, e.g. `https://kistie-store-production.up.railway.app`
    - `DJANGO_ENABLE_ADMIN` — `true` only if you want `/admin/` exposed in production
-3. The build runs `collectstatic`, `migrate`, `seed_inventory_if_empty`, and `link_static_images_to_products`. Deploy.
+4. Add a worker service/process using the `Procfile` command: `celery --workdir backend -A core worker --loglevel=INFO --concurrency=2`.
+5. The build runs `collectstatic`, `migrate`, `seed_inventory_if_empty`, and `link_static_images_to_products`. Deploy.
 
 ### Custom domain
 

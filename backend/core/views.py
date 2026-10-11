@@ -13,7 +13,6 @@ from django.contrib.auth.decorators import login_required, permission_required, 
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib import messages
 from django.core.cache import cache
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Avg, Count, DecimalField, ExpressionWrapper, F, Prefetch, Q, Sum
 from django.http import FileResponse, Http404, HttpResponseRedirect, JsonResponse
@@ -22,10 +21,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from cart.models import Cart, CartItem, Order, OrderItem
 from cart.order_tracking import order_timeline, orders_with_timelines
+from core.tasks import send_contact_inquiry_email
 from core.recently_viewed import record_product_view, recently_viewed_products
 from inventory.models import Category, Product, ProductImage, ProductReview, Shipment, Vendor
 from pages.forms import ContactInquiryForm
@@ -611,6 +611,17 @@ def _flash_contact_inquiry_failure(request, exc):
         )
 
 
+def _queue_contact_inquiry_email(inquiry_data):
+    try:
+        send_contact_inquiry_email.delay(inquiry_data)
+    except Exception:
+        logger.exception(
+            'Failed to queue contact inquiry email for %s; sending synchronously',
+            inquiry_data.get('email', ''),
+        )
+        send_contact_inquiry_email.apply(args=(inquiry_data,), throw=True)
+
+
 def _handle_contact_inquiry(request):
     if request.method != 'POST':
         return ContactInquiryForm(), False
@@ -621,21 +632,24 @@ def _handle_contact_inquiry(request):
         return contact_form, False
 
     inquiry = ContactInquiry.objects.create(**contact_form.cleaned_data)
+    inquiry_data = {
+        'name': inquiry.name,
+        'email': inquiry.email,
+        'subject': inquiry.subject,
+        'message': inquiry.message,
+    }
     try:
-        send_mail(
-            subject=f"New storefront inquiry: {inquiry.subject}",
-            message=(
-                f"Name: {inquiry.name}\n"
-                f"Email: {inquiry.email}\n\n"
-                f"Message:\n{inquiry.message}"
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[settings.CONTACT_RECIPIENT_EMAIL],
-            fail_silently=False,
-        )
+        if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+            send_contact_inquiry_email.apply(args=(inquiry_data,), throw=True)
+        else:
+            transaction.on_commit(lambda: _queue_contact_inquiry_email(inquiry_data))
         _flash_contact_inquiry_success(request)
     except Exception as exc:
-        _flash_contact_inquiry_failure(request, exc)
+        try:
+            send_contact_inquiry_email.apply(args=(inquiry_data,), throw=True)
+            _flash_contact_inquiry_success(request)
+        except Exception:
+            _flash_contact_inquiry_failure(request, exc)
     return contact_form, True
 
 
@@ -647,6 +661,46 @@ def health(request):
     if wants_json:
         return JsonResponse({'status': 'ok', 'service': 'kistie-store'}, status=200)
     return render(request, 'core/health.html', status=200)
+
+
+@login_required
+@permission_required('core.access_staff_dashboard', raise_exception=True)
+@require_GET
+def ai_readiness(request):
+    """Staff-only provider probe; never returns provider output or credentials."""
+    from core.ai_utils import ai_configured, chat_complete, _configured_gemini_model
+
+    provider = getattr(settings, 'AI_PROVIDER', 'openai').lower()
+    model = (
+        _configured_gemini_model()
+        if provider == 'gemini'
+        else getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini')
+    )
+    configured = ai_configured()
+    responding = False
+
+    if configured:
+        try:
+            response = chat_complete(
+                [{'role': 'user', 'content': 'Reply with OK only.'}],
+                max_tokens=8,
+            )
+            responding = bool(response and response.strip())
+        except Exception as exc:
+            logger.warning(
+                'AI readiness probe failed provider=%s model=%s error_type=%s',
+                provider,
+                model,
+                type(exc).__name__,
+            )
+
+    status = 200 if responding else 503
+    return JsonResponse({
+        'configured': configured,
+        'responding': responding,
+        'provider': provider,
+        'model': model,
+    }, status=status)
 
 
 def home(request):
@@ -1818,14 +1872,19 @@ def _extract_named_measurements(raw):
 
 
 def _extract_compact_measurements(raw):
-    nums = re.findall(r'(\d{2,3}(?:\.\d+)?)', raw)
-    if len(nums) < 3:
+    match = re.fullmatch(
+        r'\s*(\d{2,3}(?:\.\d+)?)(?:\s*[/,]\s*|\s+)'
+        r'(\d{2,3}(?:\.\d+)?)(?:\s*[/,]\s*|\s+)'
+        r'(\d{2,3}(?:\.\d+)?)(?:\s*cm)?\s*',
+        raw,
+    )
+    if not match:
         return None
     try:
         return {
-            'bust': float(nums[0]),
-            'waist': float(nums[1]),
-            'hips': float(nums[2]),
+            'bust': float(match.group(1)),
+            'waist': float(match.group(2)),
+            'hips': float(match.group(3)),
         }
     except (TypeError, ValueError):
         return None
@@ -1904,9 +1963,9 @@ def _quick_chat_fallback(user_message):
 
 
 def _is_measurement_intent(message):
-    return any(
-        token in message.lower()
-        for token in ('size', 'saizi', 'bust', 'waist', 'hips', 'measure', 'measurement', 'cm')
+    return bool(
+        re.search(r'\b(?:bust|chest|waist|hips?|measurements?|cm)\b', message.lower())
+        or _extract_compact_measurements(message)
     )
 
 

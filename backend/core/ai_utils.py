@@ -6,6 +6,7 @@ Set AI_PROVIDER='openai' or 'gemini' in settings / .env.
 import json
 import logging
 import re
+import time
 from typing import Any, Optional
 
 import requests as _http
@@ -17,11 +18,47 @@ _OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 _GEMINI_URL_TPL = (
     'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}'
 )
-_GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash'
+_GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash-lite'
+_RETIRED_GEMINI_MODELS = {'gemini-2.0-flash', 'gemini-2.0-flash-lite'}
 
 # Hard cap per call to keep latency + cost low.
 _MAX_TOKENS = 512
 _TIMEOUT = 20  # seconds
+
+
+def _configured_gemini_model() -> str:
+    model = getattr(settings, 'GEMINI_MODEL', _GEMINI_DEFAULT_MODEL)
+    if model in _RETIRED_GEMINI_MODELS:
+        logger.warning(
+            'AI provider model is retired provider=gemini configured_model=%s fallback_model=%s',
+            model,
+            _GEMINI_DEFAULT_MODEL,
+        )
+        return _GEMINI_DEFAULT_MODEL
+    return model
+
+
+def _log_provider_result(provider: str, model: str, started_at: float, exc: Exception | None = None) -> None:
+    latency_ms = round((time.perf_counter() - started_at) * 1000)
+    if exc is None:
+        logger.info(
+            'AI provider call succeeded provider=%s model=%s latency_ms=%s',
+            provider,
+            model,
+            latency_ms,
+        )
+        return
+
+    response = getattr(exc, 'response', None)
+    http_status = getattr(response, 'status_code', None)
+    logger.warning(
+        'AI provider call failed provider=%s model=%s latency_ms=%s error_type=%s http_status=%s',
+        provider,
+        model,
+        latency_ms,
+        type(exc).__name__,
+        http_status or 'n/a',
+    )
 
 
 def _call_openai(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optional[str]:
@@ -29,6 +66,7 @@ def _call_openai(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optiona
     if not key:
         return None
     model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini')
+    started_at = time.perf_counter()
     try:
         resp = _http.post(
             _OPENAI_URL,
@@ -38,9 +76,11 @@ def _call_openai(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optiona
         )
         resp.raise_for_status()
         data = resp.json()
-        return data['choices'][0]['message']['content'].strip()
+        result = data['choices'][0]['message']['content'].strip()
+        _log_provider_result('openai', model, started_at)
+        return result
     except Exception as exc:
-        logger.warning('OpenAI call failed: %s', exc)
+        _log_provider_result('openai', model, started_at, exc)
         return None
 
 
@@ -48,7 +88,7 @@ def _call_gemini(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optiona
     key = getattr(settings, 'GEMINI_API_KEY', '')
     if not key:
         return None
-    model = getattr(settings, 'GEMINI_MODEL', _GEMINI_DEFAULT_MODEL)
+    model = _configured_gemini_model()
     url = _GEMINI_URL_TPL.format(model=model, key=key)
 
     # Convert OpenAI-style messages to Gemini contents format.
@@ -70,6 +110,7 @@ def _call_gemini(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optiona
     if not contents:
         return None
 
+    started_at = time.perf_counter()
     try:
         resp = _http.post(
             url,
@@ -81,9 +122,11 @@ def _call_gemini(messages: list[dict], max_tokens: int = _MAX_TOKENS) -> Optiona
         )
         resp.raise_for_status()
         data = resp.json()
-        return data['candidates'][0]['content']['parts'][0]['text'].strip()
+        result = data['candidates'][0]['content']['parts'][0]['text'].strip()
+        _log_provider_result('gemini', model, started_at)
+        return result
     except Exception as exc:
-        logger.warning('Gemini call failed: %s', exc)
+        _log_provider_result('gemini', model, started_at, exc)
         return None
 
 

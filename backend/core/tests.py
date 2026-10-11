@@ -10,10 +10,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from decimal import Decimal
 import json
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from inventory.models import Category, Product
+from pages.models import ContactInquiry
 
 # Values used only in test POST payloads / create_user calls (not production).
 _PW_SIGNUP = 'StrongPass123!'
@@ -58,6 +60,90 @@ class HealthEndpointTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'ok')
         self.assertEqual(response.json()['service'], 'kistie-store')
+
+
+class AiReadinessEndpointTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.staff = user_model.objects.create_user('ai_readiness_staff', password=_PW_PORTAL_STAFF)
+        permission = Permission.objects.get(
+            content_type__app_label='core',
+            codename='access_staff_dashboard',
+        )
+        cls.staff.user_permissions.add(permission)
+
+    def test_ai_readiness_requires_staff_permission(self):
+        response = self.client.get(reverse('ai_readiness'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_ai_readiness_returns_only_safe_probe_metadata(self):
+        from unittest.mock import patch
+
+        self.client.force_login(self.staff)
+        with self.settings(
+            OPENAI_API_KEY='',
+            GEMINI_API_KEY='test-key',
+            AI_PROVIDER='gemini',
+            GEMINI_MODEL='gemini-3.5-flash-lite',
+        ):
+            with patch('core.ai_utils.chat_complete', return_value='private model output') as chat_complete:
+                response = self.client.get(reverse('ai_readiness'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            'configured': True,
+            'responding': True,
+            'provider': 'gemini',
+            'model': 'gemini-3.5-flash-lite',
+        })
+        chat_complete.assert_called_once()
+
+    def test_ai_readiness_reports_unconfigured_without_calling_provider(self):
+        from unittest.mock import patch
+
+        self.client.force_login(self.staff)
+        with self.settings(OPENAI_API_KEY='', GEMINI_API_KEY=''):
+            with patch('core.ai_utils.chat_complete') as chat_complete:
+                response = self.client.get(reverse('ai_readiness'))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['configured'], False)
+        self.assertEqual(response.json()['responding'], False)
+        chat_complete.assert_not_called()
+
+
+class CeleryEmailSmokeTests(TestCase):
+    def test_celery_registers_email_tasks(self):
+        from core.celery import app
+
+        app.autodiscover_tasks(force=True)
+        self.assertIn('core.tasks.send_contact_inquiry_email', app.tasks)
+        self.assertIn('cart.tasks.send_order_status_notification_email', app.tasks)
+
+    @override_settings(
+        CELERY_TASK_ALWAYS_EAGER=True,
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        CONTACT_RECIPIENT_EMAIL='staff@example.com',
+        DEFAULT_FROM_EMAIL='noreply@example.com',
+        OPENAI_API_KEY='',
+        GEMINI_API_KEY='',
+    )
+    def test_contact_form_saves_and_sends_via_celery_task(self):
+        response = self.client.post(
+            reverse('contact'),
+            data={
+                'name': 'Smoke Shopper',
+                'email': 'shopper@example.com',
+                'subject': 'Sizing question',
+                'message': 'Can you confirm this dress sizing before I order?',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ContactInquiry.objects.count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['staff@example.com'])
+        self.assertIn('Smoke Shopper', mail.outbox[0].body)
 
 
 class ShopRedirectTests(TestCase):
@@ -330,6 +416,70 @@ class AiUtilsTests(TestCase):
     def setUpTestData(cls):
         cls.category = Category.objects.create(name='Tops', description='')
 
+    def test_test_runner_does_not_load_environment_ai_credentials(self):
+        from django.conf import settings
+
+        self.assertFalse(settings.OPENAI_API_KEY)
+        self.assertFalse(settings.GEMINI_API_KEY)
+
+    def test_gemini_default_model_is_supported_flash_lite(self):
+        from core.ai_utils import _GEMINI_DEFAULT_MODEL, _configured_gemini_model
+
+        self.assertEqual(_GEMINI_DEFAULT_MODEL, 'gemini-3.5-flash-lite')
+        with self.settings(GEMINI_MODEL='gemini-2.0-flash'):
+            self.assertEqual(_configured_gemini_model(), 'gemini-3.5-flash-lite')
+
+    def test_gemini_failure_log_redacts_api_key_and_includes_diagnostics(self):
+        from unittest.mock import Mock, patch
+        from requests import HTTPError
+        from core.ai_utils import _call_gemini
+
+        api_key = 'test-secret-key'
+        response = Mock()
+        response.raise_for_status.side_effect = HTTPError(
+            f'404 Client Error for url: https://example.invalid/?key={api_key}',
+            response=Mock(status_code=404),
+        )
+        with self.settings(
+            GEMINI_API_KEY=api_key,
+            GEMINI_MODEL='gemini-3.5-flash-lite',
+            AI_PROVIDER='gemini',
+        ):
+            with patch('core.ai_utils._http.post', return_value=response):
+                with self.assertLogs('core.ai_utils', level='WARNING') as captured:
+                    result = _call_gemini([{'role': 'user', 'content': 'probe'}])
+
+        self.assertIsNone(result)
+        log_output = '\n'.join(captured.output)
+        self.assertNotIn(api_key, log_output)
+        self.assertIn('provider=gemini', log_output)
+        self.assertIn('model=gemini-3.5-flash-lite', log_output)
+        self.assertIn('http_status=404', log_output)
+        self.assertIn('latency_ms=', log_output)
+
+    def test_gemini_success_log_includes_provider_model_and_latency(self):
+        from unittest.mock import Mock, patch
+        from core.ai_utils import _call_gemini
+
+        response = Mock()
+        response.json.return_value = {
+            'candidates': [{'content': {'parts': [{'text': 'OK'}]}}],
+        }
+        with self.settings(
+            GEMINI_API_KEY='test-secret-key',
+            GEMINI_MODEL='gemini-3.5-flash-lite',
+            AI_PROVIDER='gemini',
+        ):
+            with patch('core.ai_utils._http.post', return_value=response):
+                with self.assertLogs('core.ai_utils', level='INFO') as captured:
+                    result = _call_gemini([{'role': 'user', 'content': 'probe'}])
+
+        self.assertEqual(result, 'OK')
+        log_output = '\n'.join(captured.output)
+        self.assertIn('provider=gemini', log_output)
+        self.assertIn('model=gemini-3.5-flash-lite', log_output)
+        self.assertIn('latency_ms=', log_output)
+
     def test_parse_measurements_from_text_uses_llm(self):
         from unittest.mock import patch
         from core.ai_utils import parse_measurements_from_text
@@ -401,6 +551,33 @@ class ChatApiTests(TestCase):
                     )
         self.assertEqual(response.status_code, 200)
         self.assertIn('EU 38', response.json()['reply'])
+
+    def test_chat_size_comparison_does_not_trigger_measurement_parsing(self):
+        from unittest.mock import patch
+
+        with patch('core.ai_utils.parse_measurements_from_text', return_value=None) as parse_measurements:
+            with patch('core.ai_utils.chat_complete', return_value='Choose EU 40 for a more relaxed fit.'):
+                with self.settings(OPENAI_API_KEY='test-key', GEMINI_API_KEY=''):
+                    response = self.client.post(
+                        reverse('api_chat'),
+                        data=json.dumps({'message': 'I am between EU sizes 38 and 40. Which should I choose?'}),
+                        content_type='application/json',
+                    )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['reply'], 'Choose EU 40 for a more relaxed fit.')
+        parse_measurements.assert_not_called()
+
+    def test_chat_compact_measurements_still_receive_a_size_recommendation(self):
+        with self.settings(OPENAI_API_KEY='', GEMINI_API_KEY=''):
+            response = self.client.post(
+                reverse('api_chat'),
+                data=json.dumps({'message': '90/70/98'}),
+                content_type='application/json',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('EU 38 is your closest match', response.json()['reply'])
 
 
 class SizeRecommendApiTests(TestCase):
