@@ -1,0 +1,7 @@
+{
+  "deployedAt": "2026-10-02T15:43:26.309371+00:00",
+  "platform": "railway",
+  "productionUrl": "https://kistie-store-production.up.railway.app",
+  "postgresProvider": null,
+  "readinessScore": 100
+}

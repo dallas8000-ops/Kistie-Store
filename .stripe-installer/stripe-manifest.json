@@ -1,0 +1,14 @@
+{
+  "createdAt": "2026-09-29T01:03:35.705104+00:00",
+  "updatedAt": "2026-09-29T01:03:35.705104+00:00",
+  "accountId": "acct_1TVQpaRxznXvj6jh",
+  "products": [],
+  "prices": [],
+  "webhookEndpoint": {
+    "id": "we_1UKpSCRxznXvj6jhyhgPt8AC",
+    "url": "https://kistie-store-production.up.railway.app/stripe/webhook",
+    "reused": false
+  },
+  "billingPortalConfig": null,
+  "appUrl": "https://kistie-store-production.up.railway.app"
+}
